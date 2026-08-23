@@ -6,9 +6,6 @@ import { supabase } from "../lib/supabase";
  * ============================================================
  */
 
-/**
- * Create a new emergency incident.
- */
 export async function createIncident({
   type,
   severity,
@@ -56,12 +53,6 @@ export async function createIncident({
  * ============================================================
  */
 
-/**
- * Get all active incidents for the Command Center.
- *
- * Resolved incidents are excluded because they should
- * eventually live in the archive.
- */
 export async function getActiveIncidents() {
   const { data, error } = await supabase
     .from("incidents")
@@ -79,9 +70,6 @@ export async function getActiveIncidents() {
 }
 
 
-/**
- * Get all registered field responders.
- */
 export async function getResponders() {
   const { data, error } = await supabase
     .from("profiles")
@@ -103,20 +91,19 @@ export async function getResponders() {
  * Dispatch an incident to a responder.
  *
  * IMPORTANT:
- * Dispatching does NOT change the incident status.
+ * Dispatch does NOT change the incident status.
  *
- * The workflow is:
+ * Workflow:
  *
  * pending
  *    ↓
- * responder accepts
+ * Admin dispatch
  *    ↓
- * in_progress
+ * pending + responder_id
  *    ↓
- * resolved
- *
- * RLS/database policies must ensure only an authorized
- * admin can perform this operation.
+ * Responder accepts
+ *    ↓
+ * accepted
  */
 export async function dispatchIncident(
   incidentId,
@@ -137,6 +124,7 @@ export async function dispatchIncident(
       assigned_at: new Date().toISOString(),
     })
     .eq("id", incidentId)
+    .eq("status", "pending")
     .select()
     .single();
 
@@ -144,38 +132,13 @@ export async function dispatchIncident(
     throw error;
   }
 
+  if (!data) {
+    throw new Error(
+      "Incident could not be dispatched. It may already be assigned or no longer be pending."
+    );
+  }
+
   return data;
-}
-
-
-/**
- * Subscribe to realtime incident changes.
- *
- * The Admin dashboard uses this to receive:
- *
- * INSERT → new emergency
- * UPDATE → dispatch/status changes
- * DELETE → removed incident
- */
-export function subscribeToIncidents(callback) {
-  const channel = supabase
-    .channel("admin-incidents")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "incidents",
-      },
-      (payload) => {
-        callback(payload);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
 }
 
 
@@ -186,10 +149,10 @@ export function subscribeToIncidents(callback) {
  */
 
 /**
- * Get incidents assigned to the currently logged-in responder.
+ * Get only incidents assigned to the currently
+ * authenticated responder.
  *
- * We intentionally obtain the user from Supabase Auth
- * instead of accepting a user ID from the frontend.
+ * RLS remains the actual security boundary.
  */
 export async function getMyAssignedIncidents() {
   const {
@@ -223,18 +186,17 @@ export async function getMyAssignedIncidents() {
 
 
 /**
- * Update the status of an assigned incident.
+ * Update responder mission status through the
+ * PostgreSQL RPC.
  *
- * IMPORTANT:
- * We intentionally use a PostgreSQL RPC instead of allowing
- * the responder to directly update the incidents table.
+ * Valid transitions are enforced by PostgreSQL:
  *
- * The database function is responsible for enforcing:
+ * pending  -> accepted
+ * accepted -> arrived
+ * arrived  -> resolved
  *
- * pending → in_progress
- * in_progress → resolved
- *
- * and ensuring that the responder actually owns the assignment.
+ * The responder cannot directly manipulate the
+ * incident status from the client.
  */
 export async function updateIncidentStatus(
   incidentId,
@@ -244,18 +206,15 @@ export async function updateIncidentStatus(
     throw new Error("Incident ID is required.");
   }
 
-  if (!status) {
-    throw new Error("Incident status is required.");
-  }
-
   const allowedStatuses = [
-    "in_progress",
+    "accepted",
+    "arrived",
     "resolved",
   ];
 
   if (!allowedStatuses.includes(status)) {
     throw new Error(
-      `Invalid responder status: ${status}`
+      "Invalid responder status."
     );
   }
 
@@ -276,15 +235,39 @@ export async function updateIncidentStatus(
 
 
 /**
- * Subscribe to realtime incident changes for responders.
- *
- * The responder dashboard can use this to detect:
- *
- * - newly assigned missions
- * - assignment changes
- * - status changes
- * - resolved missions
+ * ============================================================
+ * REALTIME — ADMIN
+ * ============================================================
  */
+
+export function subscribeToIncidents(callback) {
+  const channel = supabase
+    .channel("admin-incidents")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "incidents",
+      },
+      (payload) => {
+        callback(payload);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+
+/**
+ * ============================================================
+ * REALTIME — RESPONDER
+ * ============================================================
+ */
+
 export function subscribeToResponderIncidents(
   callback
 ) {

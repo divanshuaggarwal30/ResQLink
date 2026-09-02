@@ -1,6 +1,4 @@
-import {
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   AlertTriangle,
@@ -8,21 +6,18 @@ import {
   Clock3,
   LogOut,
   MapPin,
-  Navigation,
+  Navigation as NavigationIcon,
   Radio,
   ShieldCheck,
 } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 
-import {
-  updateIncidentStatus,
-} from "../services/incidentService";
+import { updateIncidentStatus } from "../services/incidentService";
 
-import {
-  useResponderIncidents,
-} from "../hooks/useResponderIncidents";
+import { updateResponderLocation } from "../services/responderService";
 
+import { useResponderIncidents } from "../hooks/useResponderIncidents";
 
 const typeLabels = {
   flood: "Flood",
@@ -31,56 +26,36 @@ const typeLabels = {
   structural: "Structural",
 };
 
-
 const severityStyles = {
   high: {
-    badge:
-      "border-red-500/30 bg-red-500/10 text-red-300",
-
-    icon:
-      "text-red-400",
-
-    button:
-      "bg-red-600 hover:bg-red-500",
+    badge: "border-red-500/30 bg-red-500/10 text-red-300",
+    icon: "text-red-400",
+    button: "bg-red-600 hover:bg-red-500",
   },
 
   medium: {
-    badge:
-      "border-amber-500/30 bg-amber-500/10 text-amber-300",
-
-    icon:
-      "text-amber-400",
-
-    button:
-      "bg-amber-600 hover:bg-amber-500",
+    badge: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    icon: "text-amber-400",
+    button: "bg-amber-600 hover:bg-amber-500",
   },
 
   low: {
-    badge:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-
-    icon:
-      "text-emerald-400",
-
-    button:
-      "bg-emerald-600 hover:bg-emerald-500",
+    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    icon: "text-emerald-400",
+    button: "bg-emerald-600 hover:bg-emerald-500",
   },
 };
-
 
 function formatTime(date) {
   if (!date) {
     return "Unknown";
   }
 
-  return new Date(
-    date
-  ).toLocaleTimeString([], {
+  return new Date(date).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
-
 
 function formatStatus(status) {
   if (!status) {
@@ -89,11 +64,8 @@ function formatStatus(status) {
 
   return String(status)
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
-    );
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
-
 
 /**
  * ============================================================
@@ -102,60 +74,126 @@ function formatStatus(status) {
  */
 
 export default function ResponderDashboard() {
-  const {
-    user,
-    signOut,
-  } = useAuth();
+  const { user, signOut } = useAuth();
 
-  const {
-    incidents,
-    loading,
-    error,
-  } =
-    useResponderIncidents();
+  const { incidents, loading, error } = useResponderIncidents();
 
-  const [
-    activeAction,
-    setActiveAction,
-  ] = useState(null);
+  const [activeAction, setActiveAction] = useState(null);
 
-  const [
-    actionError,
-    setActionError,
-  ] = useState("");
+  const [actionError, setActionError] = useState("");
 
+  /**
+   * ==========================================================
+   * REALTIME RESPONDER LOCATION TRACKING
+   * ==========================================================
+   *
+   * The browser watches the responder's GPS position.
+   *
+   * Every time the browser provides a new position:
+   *
+   * Browser GPS
+   *      ↓
+   * updateResponderLocation()
+   *      ↓
+   * Supabase RPC
+   *      ↓
+   * profiles.latitude / longitude
+   *      ↓
+   * Supabase Realtime
+   *      ↓
+   * Admin Command Center
+   *
+   * The database RPC ensures that a responder can only
+   * update their own location.
+   */
 
-  const handleStatusChange =
-    async (
-      incidentId,
-      status
-    ) => {
-      setActiveAction(
-        `${incidentId}:${status}`
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      console.warn(
+        "Geolocation is not supported by this browser."
       );
 
-      setActionError("");
+      return;
+    }
 
-      try {
-        await updateIncidentStatus(
-          incidentId,
-          status
-        );
-      } catch (err) {
-        console.error(
-          "Status update failed:",
-          err
-        );
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
 
-        setActionError(
-          err.message ||
-            "Unable to update mission status."
+        try {
+          await updateResponderLocation(
+            latitude,
+            longitude
+          );
+        } catch (error) {
+          console.error(
+            "Failed to update responder location:",
+            error
+          );
+        }
+      },
+      (error) => {
+        console.warn(
+          "Responder location error:",
+          error.message
         );
-      } finally {
-        setActiveAction(null);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 10000,
       }
-    };
+    );
 
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [user]);
+
+  /**
+   * ==========================================================
+   * INCIDENT STATUS UPDATE
+   * ==========================================================
+   */
+
+  const handleStatusChange = async (
+    incidentId,
+    status
+  ) => {
+    setActiveAction(`${incidentId}:${status}`);
+
+    setActionError("");
+
+    try {
+      await updateIncidentStatus(
+        incidentId,
+        status
+      );
+    } catch (err) {
+      console.error(
+        "Status update failed:",
+        err
+      );
+
+      setActionError(
+        err.message ||
+          "Unable to update mission status."
+      );
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -192,7 +230,6 @@ export default function ResponderDashboard() {
         </div>
       </header>
 
-
       {/* ====================================================
           MAIN
       ==================================================== */}
@@ -212,6 +249,21 @@ export default function ResponderDashboard() {
           <Radio className="h-4 w-4 text-emerald-400" />
         </div>
 
+        {/* LOCATION TRACKING STATUS */}
+
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-500/10 bg-blue-500/5 px-4 py-3">
+          <NavigationIcon className="h-4 w-4 text-blue-400" />
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+              Location Tracking
+            </p>
+
+            <p className="mt-0.5 text-xs text-slate-500">
+              GPS position is shared with Command Center.
+            </p>
+          </div>
+        </div>
 
         {/* TITLE */}
 
@@ -225,10 +277,10 @@ export default function ResponderDashboard() {
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Active emergency assignments from the Command Center.
+            Active emergency assignments from the
+            Command Center.
           </p>
         </div>
-
 
         {/* ERRORS */}
 
@@ -244,7 +296,6 @@ export default function ResponderDashboard() {
           </div>
         )}
 
-
         {/* LOADING */}
 
         {loading ? (
@@ -255,262 +306,240 @@ export default function ResponderDashboard() {
               Loading missions...
             </p>
           </div>
-        ) : incidents.length ===
-          0 ? (
+        ) : incidents.length === 0 ? (
           <EmptyState />
         ) : (
           <div className="space-y-5">
-            {incidents.map(
-              (incident) => {
-                const style =
-                  severityStyles[
-                    incident.severity
-                  ] ||
-                  severityStyles.low;
+            {incidents.map((incident) => {
+              const style =
+                severityStyles[
+                  incident.severity
+                ] || severityStyles.low;
 
-                const accepting =
-                  activeAction ===
-                  `${incident.id}:accepted`;
+              const accepting =
+                activeAction ===
+                `${incident.id}:accepted`;
 
-                const arriving =
-                  activeAction ===
-                  `${incident.id}:arrived`;
+              const arriving =
+                activeAction ===
+                `${incident.id}:arrived`;
 
-                const resolving =
-                  activeAction ===
-                  `${incident.id}:resolved`;
+              const resolving =
+                activeAction ===
+                `${incident.id}:resolved`;
 
-                return (
-                  <article
-                    key={incident.id}
-                    className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
+              return (
+                <article
+                  key={incident.id}
+                  className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
+                >
+                  {/* SEVERITY */}
+
+                  <div
+                    className={`border-b border-slate-800 px-5 py-3 ${style.badge}`}
                   >
-                    {/* SEVERITY */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle
+                          className={`h-4 w-4 ${style.icon}`}
+                        />
 
-                    <div
-                      className={`border-b border-slate-800 px-5 py-3 ${style.badge}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle
-                            className={`h-4 w-4 ${style.icon}`}
-                          />
-
-                          <span className="text-xs font-bold uppercase">
-                            {
-                              incident.severity
-                            }{" "}
-                            priority
-                          </span>
-                        </div>
-
-                        <span className="text-xs font-semibold uppercase text-slate-400">
-                          {formatStatus(
-                            incident.status
-                          )}
+                        <span className="text-xs font-bold uppercase">
+                          {incident.severity} priority
                         </span>
+                      </div>
+
+                      <span className="text-xs font-semibold uppercase text-slate-400">
+                        {formatStatus(
+                          incident.status
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* DETAILS */}
+
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-slate-600">
+                          Emergency Type
+                        </p>
+
+                        <h2 className="mt-1 text-2xl font-bold">
+                          {typeLabels[
+                            incident.type
+                          ] || incident.type}
+                        </h2>
+                      </div>
+
+                      <div
+                        className={`rounded-xl border p-3 ${style.badge}`}
+                      >
+                        <AlertTriangle
+                          className={`h-6 w-6 ${style.icon}`}
+                        />
                       </div>
                     </div>
 
+                    {/* LOCATION */}
 
-                    {/* DETAILS */}
+                    <div className="mt-5">
+                      <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
+                        <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
 
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-slate-600">
-                            Emergency Type
+                        <div className="min-w-0">
+                          <p className="text-xs text-slate-500">
+                            Emergency Location
                           </p>
 
-                          <h2 className="mt-1 text-2xl font-bold">
-                            {typeLabels[
-                              incident.type
-                            ] ||
-                              incident.type}
-                          </h2>
-                        </div>
+                          <p className="mt-1 break-all font-mono text-sm text-slate-200">
+                            {Number(
+                              incident.latitude
+                            ).toFixed(6)}
+                            ,{" "}
+                            {Number(
+                              incident.longitude
+                            ).toFixed(6)}
+                          </p>
 
-                        <div
-                          className={`rounded-xl border p-3 ${style.badge}`}
-                        >
-                          <AlertTriangle
-                            className={`h-6 w-6 ${style.icon}`}
-                          />
-                        </div>
-                      </div>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${incident.latitude},${incident.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                          >
+                            <NavigationIcon className="h-3.5 w-3.5" />
 
-
-                      {/* LOCATION */}
-
-                      <div className="mt-5">
-                        <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
-                          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-
-                          <div className="min-w-0">
-                            <p className="text-xs text-slate-500">
-                              Emergency Location
-                            </p>
-
-                            <p className="mt-1 break-all font-mono text-sm text-slate-200">
-                              {Number(
-                                incident.latitude
-                              ).toFixed(6)}
-                              ,{" "}
-                              {Number(
-                                incident.longitude
-                              ).toFixed(6)}
-                            </p>
-
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${incident.latitude},${incident.longitude}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
-                            >
-                              <Navigation className="h-3.5 w-3.5" />
-
-                              OPEN MAP
-                            </a>
-                          </div>
+                            OPEN MAP
+                          </a>
                         </div>
                       </div>
+                    </div>
 
+                    {/* TIME */}
 
-                      {/* TIME */}
+                    <div className="mt-3 flex items-start gap-3 rounded-xl bg-slate-950 p-4">
+                      <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
 
+                      <div>
+                        <p className="text-xs text-slate-500">
+                          Reported
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-200">
+                          {formatTime(
+                            incident.created_at
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* DISPATCHED */}
+
+                    {incident.assigned_at && (
                       <div className="mt-3 flex items-start gap-3 rounded-xl bg-slate-950 p-4">
-                        <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+                        <NavigationIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-400" />
 
                         <div>
                           <p className="text-xs text-slate-500">
-                            Reported
+                            Dispatched
                           </p>
 
                           <p className="mt-1 text-sm text-slate-200">
                             {formatTime(
-                              incident.created_at
+                              incident.assigned_at
                             )}
                           </p>
                         </div>
                       </div>
+                    )}
 
+                    {/* PROGRESS */}
 
-                      {/* DISPATCHED */}
+                    <MissionProgress
+                      status={
+                        incident.status
+                      }
+                    />
 
-                      {incident.assigned_at && (
-                        <div className="mt-3 flex items-start gap-3 rounded-xl bg-slate-950 p-4">
-                          <Navigation className="mt-0.5 h-5 w-5 shrink-0 text-blue-400" />
+                    {/* ACTION */}
 
-                          <div>
-                            <p className="text-xs text-slate-500">
-                              Dispatched
-                            </p>
-
-                            <p className="mt-1 text-sm text-slate-200">
-                              {formatTime(
-                                incident.assigned_at
-                              )}
-                            </p>
-                          </div>
-                        </div>
+                    <div className="mt-6">
+                      {incident.status ===
+                        "pending" && (
+                        <MissionButton
+                          loading={
+                            accepting
+                          }
+                          onClick={() =>
+                            handleStatusChange(
+                              incident.id,
+                              "accepted"
+                            )
+                          }
+                          className="bg-red-600 hover:bg-red-500"
+                          icon={NavigationIcon}
+                          text="ACCEPT MISSION"
+                          loadingText="ACCEPTING..."
+                        />
                       )}
 
+                      {incident.status ===
+                        "accepted" && (
+                        <MissionButton
+                          loading={
+                            arriving
+                          }
+                          onClick={() =>
+                            handleStatusChange(
+                              incident.id,
+                              "arrived"
+                            )
+                          }
+                          className="bg-blue-600 hover:bg-blue-500"
+                          icon={MapPin}
+                          text="ARRIVED AT LOCATION"
+                          loadingText="UPDATING..."
+                        />
+                      )}
 
-                      {/* PROGRESS */}
+                      {incident.status ===
+                        "arrived" && (
+                        <MissionButton
+                          loading={
+                            resolving
+                          }
+                          onClick={() =>
+                            handleStatusChange(
+                              incident.id,
+                              "resolved"
+                            )
+                          }
+                          className="bg-emerald-600 hover:bg-emerald-500"
+                          icon={
+                            CheckCircle2
+                          }
+                          text="ISSUE RESOLVED"
+                          loadingText="RESOLVING..."
+                        />
+                      )}
 
-                      <MissionProgress
-                        status={
-                          incident.status
-                        }
-                      />
+                      {incident.status ===
+                        "resolved" && (
+                        <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 font-bold text-emerald-300">
+                          <CheckCircle2 className="h-5 w-5" />
 
-
-                      {/* ACTION */}
-
-                      <div className="mt-6">
-                        {incident.status ===
-                          "pending" && (
-                          <MissionButton
-                            loading={
-                              accepting
-                            }
-                            onClick={() =>
-                              handleStatusChange(
-                                incident.id,
-                                "accepted"
-                              )
-                            }
-                            className="bg-red-600 hover:bg-red-500"
-                            icon={
-                              Navigation
-                            }
-                            text="ACCEPT MISSION"
-                            loadingText="ACCEPTING..."
-                          />
-                        )}
-
-
-                        {incident.status ===
-                          "accepted" && (
-                          <MissionButton
-                            loading={
-                              arriving
-                            }
-                            onClick={() =>
-                              handleStatusChange(
-                                incident.id,
-                                "arrived"
-                              )
-                            }
-                            className="bg-blue-600 hover:bg-blue-500"
-                            icon={
-                              MapPin
-                            }
-                            text="ARRIVED AT LOCATION"
-                            loadingText="UPDATING..."
-                          />
-                        )}
-
-
-                        {incident.status ===
-                          "arrived" && (
-                          <MissionButton
-                            loading={
-                              resolving
-                            }
-                            onClick={() =>
-                              handleStatusChange(
-                                incident.id,
-                                "resolved"
-                              )
-                            }
-                            className="bg-emerald-600 hover:bg-emerald-500"
-                            icon={
-                              CheckCircle2
-                            }
-                            text="ISSUE RESOLVED"
-                            loadingText="RESOLVING..."
-                          />
-                        )}
-
-
-                        {incident.status ===
-                          "resolved" && (
-                          <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 font-bold text-emerald-300">
-                            <CheckCircle2 className="h-5 w-5" />
-
-                            MISSION RESOLVED
-                          </div>
-                        )}
-                      </div>
+                          MISSION RESOLVED
+                        </div>
+                      )}
                     </div>
-                  </article>
-                );
-              }
-            )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
-
 
         {/* ACCOUNT */}
 
@@ -521,7 +550,6 @@ export default function ResponderDashboard() {
     </div>
   );
 }
-
 
 /**
  * ============================================================
@@ -546,19 +574,14 @@ function MissionButton({
     >
       <Icon
         className={`h-5 w-5 ${
-          loading
-            ? "animate-pulse"
-            : ""
+          loading ? "animate-pulse" : ""
         }`}
       />
 
-      {loading
-        ? loadingText
-        : text}
+      {loading ? loadingText : text}
     </button>
   );
 }
-
 
 /**
  * ============================================================
@@ -566,25 +589,20 @@ function MissionButton({
  * ============================================================
  */
 
-function MissionProgress({
-  status,
-}) {
+function MissionProgress({ status }) {
   const steps = [
     {
       key: "pending",
       label: "Dispatched",
     },
-
     {
       key: "accepted",
       label: "Accepted",
     },
-
     {
       key: "arrived",
       label: "Arrived",
     },
-
     {
       key: "resolved",
       label: "Resolved",
@@ -593,8 +611,7 @@ function MissionProgress({
 
   const currentIndex =
     steps.findIndex(
-      (step) =>
-        step.key === status
+      (step) => step.key === status
     );
 
   return (
@@ -604,75 +621,65 @@ function MissionProgress({
       </p>
 
       <div className="flex items-start">
-        {steps.map(
-          (
-            step,
-            index
-          ) => {
-            const completed =
-              currentIndex >=
-              index;
+        {steps.map((step, index) => {
+          const completed =
+            currentIndex >= index;
 
-            const active =
-              currentIndex ===
-              index;
+          const active =
+            currentIndex === index;
 
-            return (
-              <div
-                key={step.key}
-                className="flex min-w-0 flex-1 items-start"
-              >
-                <div className="flex min-w-0 flex-1 flex-col items-center">
-                  <div
-                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${
-                      completed
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                        : "border-slate-700 bg-slate-900 text-slate-600"
-                    } ${
-                      active
-                        ? "ring-2 ring-emerald-500/20"
-                        : ""
-                    }`}
-                  >
-                    {completed ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      index + 1
-                    )}
-                  </div>
-
-                  <span
-                    className={`mt-2 text-center text-[10px] ${
-                      completed
-                        ? "text-slate-300"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
+          return (
+            <div
+              key={step.key}
+              className="flex min-w-0 flex-1 items-start"
+            >
+              <div className="flex min-w-0 flex-1 flex-col items-center">
+                <div
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${
+                    completed
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                      : "border-slate-700 bg-slate-900 text-slate-600"
+                  } ${
+                    active
+                      ? "ring-2 ring-emerald-500/20"
+                      : ""
+                  }`}
+                >
+                  {completed ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    index + 1
+                  )}
                 </div>
 
-                {index <
-                  steps.length -
-                    1 && (
-                  <div
-                    className={`mt-3 h-px flex-1 ${
-                      currentIndex >
-                      index
-                        ? "bg-emerald-500/50"
-                        : "bg-slate-800"
-                    }`}
-                  />
-                )}
+                <span
+                  className={`mt-2 text-center text-[10px] ${
+                    completed
+                      ? "text-slate-300"
+                      : "text-slate-600"
+                  }`}
+                >
+                  {step.label}
+                </span>
               </div>
-            );
-          }
-        )}
+
+              {index <
+                steps.length - 1 && (
+                <div
+                  className={`mt-3 h-px flex-1 ${
+                    currentIndex > index
+                      ? "bg-emerald-500/50"
+                      : "bg-slate-800"
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
-
 
 /**
  * ============================================================
@@ -690,7 +697,8 @@ function EmptyState() {
       </h2>
 
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        New assignments from the Command Center will appear here automatically.
+        New assignments from the Command Center
+        will appear here automatically.
       </p>
     </div>
   );

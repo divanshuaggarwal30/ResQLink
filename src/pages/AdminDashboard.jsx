@@ -12,6 +12,7 @@ import {
   Flame,
   LogOut,
   MapPin,
+  Navigation as NavigationIcon,
   Radio,
   RefreshCw,
   ShieldCheck,
@@ -21,13 +22,11 @@ import {
 
 import { useAuth } from "../contexts/AuthContext";
 
-import {
-  dispatchIncident,
-  getResponders,
-} from "../services/incidentService";
+import { dispatchIncident } from "../services/incidentService";
 
 import { useIncidents } from "../hooks/useIncidents";
 
+import { useResponders } from "../hooks/useResponders";
 
 const severityStyles = {
   high: {
@@ -61,14 +60,12 @@ const severityStyles = {
   },
 };
 
-
 const typeLabels = {
   flood: "Flood",
   fire: "Fire",
   medical: "Medical",
   structural: "Structural",
 };
-
 
 function formatTime(date) {
   if (!date) {
@@ -85,7 +82,6 @@ function formatTime(date) {
   );
 }
 
-
 function formatStatus(status) {
   if (!status) {
     return "Unknown";
@@ -97,7 +93,6 @@ function formatStatus(status) {
       letter.toUpperCase()
     );
 }
-
 
 /**
  * ============================================================
@@ -113,8 +108,7 @@ function IncidentCard({
   const style =
     severityStyles[
       incident.severity
-    ] ||
-    severityStyles.low;
+    ] || severityStyles.low;
 
   const isHigh =
     incident.severity === "high";
@@ -149,8 +143,7 @@ function IncidentCard({
             <p className="truncate font-semibold text-white">
               {typeLabels[
                 incident.type
-              ] ||
-                incident.type}
+              ] || incident.type}
             </p>
 
             <span
@@ -193,7 +186,6 @@ function IncidentCard({
   );
 }
 
-
 /**
  * ============================================================
  * MAIN
@@ -213,10 +205,28 @@ export default function AdminDashboard() {
     reload,
   } = useIncidents();
 
-  const [
+  /**
+   * ==========================================================
+   * REALTIME RESPONDERS
+   * ==========================================================
+   *
+   * useResponders() handles:
+   *
+   * 1. Initial responder fetch
+   * 2. INSERT events
+   * 3. UPDATE events
+   * 4. DELETE events
+   * 5. Realtime GPS updates
+   *
+   * This means the Admin map receives responder
+   * location changes without a page refresh.
+   */
+
+  const {
     responders,
-    setResponders,
-  ] = useState([]);
+    loading: respondersLoading,
+    error: respondersError,
+  } = useResponders();
 
   const [
     selectedIncident,
@@ -237,36 +247,6 @@ export default function AdminDashboard() {
     actionError,
     setActionError,
   ] = useState("");
-
-
-  /**
-   * ==========================================================
-   * LOAD RESPONDERS
-   * ==========================================================
-   */
-
-  useEffect(() => {
-    const loadResponders =
-      async () => {
-        try {
-          const data =
-            await getResponders();
-
-          setResponders(
-            data || []
-          );
-        } catch (err) {
-          console.error(err);
-
-          setActionError(
-            "Unable to load responders."
-          );
-        }
-      };
-
-    loadResponders();
-  }, []);
-
 
   /**
    * ==========================================================
@@ -291,19 +271,42 @@ export default function AdminDashboard() {
         updatedIncident
       );
     } else {
-      setSelectedIncident(
-        null
-      );
-
-      setSelectedResponder(
-        ""
-      );
+      setSelectedIncident(null);
+      setSelectedResponder("");
     }
   }, [
     incidents,
     selectedIncident,
   ]);
 
+  /**
+   * ==========================================================
+   * KEEP RESPONDER SELECTION VALID
+   * ==========================================================
+   *
+   * If a responder goes offline or disappears from the
+   * realtime responder list, clear the selection.
+   */
+
+  useEffect(() => {
+    if (!selectedResponder) {
+      return;
+    }
+
+    const responderExists =
+      responders.some(
+        (responder) =>
+          responder.id ===
+          selectedResponder
+      );
+
+    if (!responderExists) {
+      setSelectedResponder("");
+    }
+  }, [
+    responders,
+    selectedResponder,
+  ]);
 
   /**
    * ==========================================================
@@ -339,6 +342,21 @@ export default function AdminDashboard() {
     };
   }, [incidents]);
 
+  /**
+   * ==========================================================
+   * AVAILABLE RESPONDERS
+   * ==========================================================
+   */
+
+  const availableResponders =
+    useMemo(() => {
+      return responders.filter(
+        (responder) =>
+          responder.availability ===
+            "available" ||
+          !responder.availability
+      );
+    }, [responders]);
 
   /**
    * ==========================================================
@@ -373,13 +391,8 @@ export default function AdminDashboard() {
           selectedResponder
         );
 
-        setSelectedIncident(
-          null
-        );
-
-        setSelectedResponder(
-          ""
-        );
+        setSelectedIncident(null);
+        setSelectedResponder("");
       } catch (err) {
         console.error(err);
 
@@ -391,7 +404,6 @@ export default function AdminDashboard() {
         setDispatching(false);
       }
     };
-
 
   /**
    * ==========================================================
@@ -446,7 +458,6 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-
       {/* ====================================================
           STATS
       ==================================================== */}
@@ -479,7 +490,6 @@ export default function AdminDashboard() {
           />
         </div>
       </section>
-
 
       {/* ====================================================
           MAIN
@@ -519,18 +529,15 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-
           {error && (
             <div className="m-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
               {error}
             </div>
           )}
 
-
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
             {loading &&
-            incidents.length ===
-              0 ? (
+            incidents.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
                 Loading incidents...
               </div>
@@ -567,7 +574,6 @@ export default function AdminDashboard() {
           </div>
         </aside>
 
-
         {/* ==================================================
             OPERATIONS
         ================================================== */}
@@ -602,6 +608,43 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* =================================================
+                RESPONDER STATUS
+            ================================================= */}
+
+            <div className="mb-6 grid gap-3 sm:grid-cols-3">
+              <ResponderStat
+                label="Total Responders"
+                value={responders.length}
+                icon={Users}
+              />
+
+              <ResponderStat
+                label="Available"
+                value={
+                  availableResponders.length
+                }
+                icon={ShieldCheck}
+              />
+
+              <ResponderStat
+                label="Live Tracking"
+                value={
+                  responders.filter(
+                    (responder) =>
+                      responder.latitude != null &&
+                      responder.longitude != null
+                  ).length
+                }
+                icon={NavigationIcon}
+              />
+            </div>
+
+            {respondersError && (
+              <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                {respondersError}
+              </div>
+            )}
 
             {/* =================================================
                 LIVE MAP
@@ -624,7 +667,6 @@ export default function AdminDashboard() {
               />
             </div>
 
-
             {/* =================================================
                 INCIDENT CONTROL
             ================================================= */}
@@ -643,7 +685,6 @@ export default function AdminDashboard() {
                   Select an active emergency to coordinate a field response.
                 </p>
               </div>
-
 
               {!selectedIncident ? (
                 <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50">
@@ -672,7 +713,8 @@ export default function AdminDashboard() {
                               severityStyles[
                                 selectedIncident.severity
                               ]?.badge ||
-                              severityStyles.low.badge
+                              severityStyles.low
+                                .badge
                             }`}
                           >
                             <AlertTriangle
@@ -680,7 +722,8 @@ export default function AdminDashboard() {
                                 severityStyles[
                                   selectedIncident.severity
                                 ]?.icon ||
-                                severityStyles.low.icon
+                                severityStyles.low
+                                  .icon
                               }`}
                             />
                           </div>
@@ -698,7 +741,8 @@ export default function AdminDashboard() {
                                 severityStyles[
                                   selectedIncident.severity
                                 ]?.badge ||
-                                severityStyles.low.badge
+                                severityStyles.low
+                                  .badge
                               }`}
                             >
                               {
@@ -716,7 +760,6 @@ export default function AdminDashboard() {
                         )}
                       </span>
                     </div>
-
 
                     <div className="mt-8 grid gap-4 sm:grid-cols-2">
                       <InfoRow
@@ -753,7 +796,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-
                   {/* Dispatch */}
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
@@ -772,7 +814,6 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                     </div>
-
 
                     <div className="mt-6">
                       <label
@@ -801,10 +842,12 @@ export default function AdminDashboard() {
                         className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <option value="">
-                          Select a responder...
+                          {respondersLoading
+                            ? "Loading responders..."
+                            : "Select a responder..."}
                         </option>
 
-                        {responders.map(
+                        {availableResponders.map(
                           (
                             responder
                           ) => (
@@ -818,27 +861,29 @@ export default function AdminDashboard() {
                             >
                               {responder.full_name ||
                                 "Unnamed Responder"}
+                              {" "}
+                              —{" "}
+                              {responder.availability ||
+                                "available"}
                             </option>
                           )
                         )}
                       </select>
                     </div>
 
-
-                    {responders.length ===
-                      0 && (
-                      <p className="mt-3 text-xs text-amber-400">
-                        No responders are currently available.
-                      </p>
-                    )}
-
+                    {availableResponders.length ===
+                      0 &&
+                      !respondersLoading && (
+                        <p className="mt-3 text-xs text-amber-400">
+                          No responders are currently available.
+                        </p>
+                      )}
 
                     {actionError && (
                       <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                         {actionError}
                       </div>
                     )}
-
 
                     <button
                       type="button"
@@ -881,7 +926,6 @@ export default function AdminDashboard() {
   );
 }
 
-
 /**
  * ============================================================
  * STAT
@@ -917,6 +961,33 @@ function Stat({
   );
 }
 
+/**
+ * ============================================================
+ * RESPONDER STAT
+ * ============================================================
+ */
+
+function ResponderStat({
+  label,
+  value,
+  icon: Icon,
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-500">
+          {label}
+        </span>
+
+        <Icon className="h-4 w-4 text-blue-400" />
+      </div>
+
+      <p className="mt-2 text-2xl font-bold text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 /**
  * ============================================================

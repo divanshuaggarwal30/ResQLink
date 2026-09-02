@@ -1,7 +1,7 @@
 import {
   AlertTriangle,
   Radio,
-  ShieldAlert,
+  Shield,
   Users,
 } from "lucide-react";
 
@@ -10,101 +10,68 @@ export default function MapOverlay({
   responders = [],
 }) {
   const high = incidents.filter(
-    (incident) => incident.severity === "high"
+    (incident) =>
+      String(
+        incident.severity
+      ).toLowerCase() === "high"
   ).length;
 
-  const medium = incidents.filter(
-    (incident) => incident.severity === "medium"
-  ).length;
+  const available =
+    responders.filter(
+      (responder) =>
+        responder.availability ===
+        "available"
+    ).length;
 
-  const pending = incidents.filter(
-    (incident) => incident.status === "pending"
-  ).length;
+  const activeMissions =
+    incidents.filter(
+      (incident) =>
+        [
+          "accepted",
+          "arrived",
+          "in_progress",
+        ].includes(
+          String(
+            incident.status
+          ).toLowerCase()
+        )
+    ).length;
 
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-[1000] flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
-      {/* Active */}
-      <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur">
+    <div className="absolute left-4 top-4 z-[1000] flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
+      <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
         <Radio className="h-4 w-4 text-emerald-400" />
 
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
-            Active
-          </p>
-
-          <p className="text-xs font-bold text-white">
-            {incidents.length}
-          </p>
-        </div>
+        <span className="text-xs font-semibold text-white">
+          {incidents.length} ACTIVE
+        </span>
       </div>
 
-      {/* High */}
       {high > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur">
-          <AlertTriangle className="h-4 w-4 animate-pulse text-red-400" />
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
+          <AlertTriangle className="h-4 w-4 text-red-400" />
 
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-red-400">
-              Critical
-            </p>
-
-            <p className="text-xs font-bold text-red-300">
-              {high}
-            </p>
-          </div>
+          <span className="text-xs font-semibold text-red-300">
+            {high} HIGH
+          </span>
         </div>
       )}
 
-      {/* Medium */}
-      {medium > 0 && (
-        <div className="hidden items-center gap-2 rounded-xl border border-amber-500/30 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur sm:flex">
-          <ShieldAlert className="h-4 w-4 text-amber-400" />
+      <div className="flex items-center gap-2 rounded-xl border border-blue-500/20 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
+        <Users className="h-4 w-4 text-blue-400" />
 
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-400">
-              Medium
-            </p>
+        <span className="text-xs font-semibold text-blue-300">
+          {available} AVAILABLE
+        </span>
+      </div>
 
-            <p className="text-xs font-bold text-amber-300">
-              {medium}
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="flex items-center gap-2 rounded-xl border border-purple-500/20 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
+        <Shield className="h-4 w-4 text-purple-400" />
 
-      {/* Pending */}
-      {pending > 0 && (
-        <div className="hidden items-center gap-2 rounded-xl border border-blue-500/30 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur md:flex">
-          <Radio className="h-4 w-4 text-blue-400" />
-
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-blue-400">
-              Pending
-            </p>
-
-            <p className="text-xs font-bold text-blue-300">
-              {pending}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Responders */}
-      {responders.length > 0 && (
-        <div className="hidden items-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur lg:flex">
-          <Users className="h-4 w-4 text-emerald-400" />
-
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-400">
-              Units
-            </p>
-
-            <p className="text-xs font-bold text-emerald-300">
-              {responders.length}
-            </p>
-          </div>
-        </div>
-      )}
+        <span className="text-xs font-semibold text-purple-300">
+          {activeMissions} MISSIONS
+        </span>
+      </div>
     </div>
   );
 }

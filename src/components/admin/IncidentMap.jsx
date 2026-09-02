@@ -6,88 +6,67 @@ import {
   useMap,
 } from "react-leaflet";
 
-import { useEffect, useMemo } from "react";
-
 import {
-  AlertTriangle,
-  Navigation,
-} from "lucide-react";
+  useEffect,
+  useMemo,
+} from "react";
 
 import MapOverlay from "./MapOverlay";
-
-
-const DEFAULT_CENTER = [
-  28.6139,
-  77.209,
-];
-
-
-const DEFAULT_ZOOM = 11;
-
 
 const severityConfig = {
   high: {
     color: "#ef4444",
-    radius: 12,
-    fillOpacity: 0.9,
+    radius: 11,
   },
 
   medium: {
     color: "#f59e0b",
-    radius: 10,
-    fillOpacity: 0.85,
+    radius: 9,
   },
 
   low: {
     color: "#10b981",
-    radius: 9,
-    fillOpacity: 0.8,
+    radius: 8,
   },
 };
 
+const responderStatusConfig = {
+  available: {
+    color: "#22c55e",
+    label: "Available",
+  },
 
-const typeLabels = {
-  flood: "Flood",
-  fire: "Fire",
-  medical: "Medical",
-  structural: "Structural",
+  busy: {
+    color: "#f59e0b",
+    label: "Busy",
+  },
+
+  offline: {
+    color: "#64748b",
+    label: "Offline",
+  },
 };
 
-
-function normalizeIncident(incident) {
-  const latitude = Number(incident?.latitude);
-  const longitude = Number(incident?.longitude);
-
-  if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
-  ) {
-    return null;
-  }
-
-  if (
-    latitude < -90 ||
-    latitude > 90 ||
-    longitude < -180 ||
-    longitude > 180
-  ) {
-    return null;
-  }
-
-  return {
-    ...incident,
-    latitude,
-    longitude,
-  };
+function isValidCoordinate(
+  latitude,
+  longitude
+) {
+  return (
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 }
 
-
 /**
- * ============================================================
- * MAP FOCUS
- * ============================================================
+ * Moves the map to the currently selected
+ * incident.
  */
-
 function MapFocus({
   incident,
 }) {
@@ -98,27 +77,24 @@ function MapFocus({
       return;
     }
 
-    const latitude = Number(
-      incident.latitude
-    );
+    const latitude =
+      Number(incident.latitude);
 
-    const longitude = Number(
-      incident.longitude
-    );
+    const longitude =
+      Number(incident.longitude);
 
     if (
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude)
+      !isValidCoordinate(
+        latitude,
+        longitude
+      )
     ) {
       return;
     }
 
     map.flyTo(
-      [
-        latitude,
-        longitude,
-      ],
-      15,
+      [latitude, longitude],
+      14,
       {
         duration: 0.8,
       }
@@ -128,202 +104,115 @@ function MapFocus({
   return null;
 }
 
-
 /**
- * ============================================================
- * AUTO FIT
- * ============================================================
+ * Individual emergency incident marker.
  */
-
-function MapAutoFit({
-  incidents,
-  selectedIncident,
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (
-      selectedIncident ||
-      incidents.length === 0
-    ) {
-      return;
-    }
-
-    const coordinates = incidents
-      .map((incident) => [
-        Number(incident.latitude),
-        Number(incident.longitude),
-      ])
-      .filter(
-        ([latitude, longitude]) =>
-          Number.isFinite(latitude) &&
-          Number.isFinite(longitude)
-      );
-
-    if (coordinates.length === 0) {
-      return;
-    }
-
-    if (coordinates.length === 1) {
-      map.flyTo(
-        coordinates[0],
-        14,
-        {
-          duration: 0.8,
-        }
-      );
-
-      return;
-    }
-
-    const bounds = coordinates;
-
-    map.fitBounds(
-      bounds,
-      {
-        padding: [
-          70,
-          70,
-        ],
-        maxZoom: 14,
-        animate: true,
-        duration: 0.8,
-      }
-    );
-  }, [
-    incidents,
-    selectedIncident,
-    map,
-  ]);
-
-  return null;
-}
-
-
-/**
- * ============================================================
- * INCIDENT MARKER
- * ============================================================
- */
-
 function IncidentMarker({
   incident,
-  selected,
   onSelect,
 }) {
+  const latitude =
+    Number(incident.latitude);
+
+  const longitude =
+    Number(incident.longitude);
+
+  if (
+    !isValidCoordinate(
+      latitude,
+      longitude
+    )
+  ) {
+    return null;
+  }
+
+  const severity =
+    String(
+      incident.severity || "low"
+    ).toLowerCase();
+
   const config =
-    severityConfig[
-      incident.severity
-    ] ||
+    severityConfig[severity] ||
     severityConfig.low;
 
   const type =
-    typeLabels[
-      incident.type
-    ] ||
-    incident.type ||
-    "Unknown";
+    String(
+      incident.type || "Emergency"
+    );
+
+  const status =
+    String(
+      incident.status || "pending"
+    );
 
   return (
     <CircleMarker
       center={[
-        incident.latitude,
-        incident.longitude,
+        latitude,
+        longitude,
       ]}
-      radius={
-        selected
-          ? config.radius + 4
-          : config.radius
-      }
+      radius={config.radius}
       pathOptions={{
-        color: selected
-          ? "#ffffff"
-          : config.color,
-
-        fillColor:
-          config.color,
-
+        color: config.color,
+        fillColor: config.color,
         fillOpacity:
-          selected
-            ? 1
-            : config.fillOpacity,
-
+          severity === "high"
+            ? 0.9
+            : 0.75,
         weight:
-          selected
+          severity === "high"
             ? 3
             : 2,
       }}
       eventHandlers={{
         click: () =>
-          onSelect(incident),
+          onSelect?.(incident),
       }}
     >
       <Popup>
-        <div className="min-w-[210px]">
-          <div className="flex items-center gap-2">
-            <AlertTriangle
-              className="h-4 w-4"
-              style={{
-                color: config.color,
-              }}
-            />
-
+        <div className="min-w-[190px]">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <p className="font-bold">
-              {type}
+              {type.toUpperCase()}
             </p>
+
+            <span
+              className="rounded-full px-2 py-1 text-[10px] font-bold uppercase"
+              style={{
+                backgroundColor:
+                  `${config.color}22`,
+                color:
+                  config.color,
+              }}
+            >
+              {severity}
+            </span>
           </div>
 
-          <div className="mt-3 rounded-lg bg-slate-100 p-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500">
-              Severity
-            </p>
+          <p className="text-sm">
+            Status:{" "}
+            <strong>
+              {status
+                .replace(
+                  "_",
+                  " "
+                )
+                .toUpperCase()}
+            </strong>
+          </p>
 
-            <p className="mt-1 text-sm font-bold uppercase">
-              {incident.severity}
-            </p>
-          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Coordinates
+          </p>
 
-          <div className="mt-2 rounded-lg bg-slate-100 p-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500">
-              Status
-            </p>
+          <p className="text-xs">
+            {latitude.toFixed(6)},{" "}
+            {longitude.toFixed(6)}
+          </p>
 
-            <p className="mt-1 text-sm font-semibold">
-              {String(
-                incident.status || "Unknown"
-              ).replaceAll(
-                "_",
-                " "
-              )}
-            </p>
-          </div>
-
-          <div className="mt-2 flex items-start gap-2 rounded-lg bg-slate-100 p-2">
-            <Navigation className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                Coordinates
-              </p>
-
-              <p className="mt-1 font-mono text-xs">
-                {Number(
-                  incident.latitude
-                ).toFixed(6)}
-                ,{" "}
-                {Number(
-                  incident.longitude
-                ).toFixed(6)}
-              </p>
-            </div>
-          </div>
-
-          {incident.created_at && (
-            <p className="mt-3 text-[10px] text-slate-500">
-              Reported{" "}
-              {new Date(
-                incident.created_at
-              ).toLocaleString()}
+          {incident.responder_id && (
+            <p className="mt-2 text-xs text-blue-600">
+              Responder assigned
             </p>
           )}
         </div>
@@ -332,34 +221,130 @@ function IncidentMarker({
   );
 }
 
+/**
+ * Individual responder marker.
+ */
+function ResponderMarker({
+  responder,
+}) {
+  const latitude =
+    Number(responder.latitude);
+
+  const longitude =
+    Number(responder.longitude);
+
+  if (
+    !isValidCoordinate(
+      latitude,
+      longitude
+    )
+  ) {
+    return null;
+  }
+
+  const availability =
+    String(
+      responder.availability ||
+        "offline"
+    ).toLowerCase();
+
+  const config =
+    responderStatusConfig[
+      availability
+    ] ||
+    responderStatusConfig.offline;
+
+  return (
+    <CircleMarker
+      center={[
+        latitude,
+        longitude,
+      ]}
+      radius={8}
+      pathOptions={{
+        color: config.color,
+        fillColor: config.color,
+        fillOpacity: 0.95,
+        weight: 3,
+      }}
+    >
+      <Popup>
+        <div className="min-w-[190px]">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-full"
+              style={{
+                backgroundColor:
+                  config.color,
+              }}
+            />
+
+            <p className="font-bold">
+              {responder.full_name ||
+                "Field Responder"}
+            </p>
+          </div>
+
+          <p className="mt-2 text-sm">
+            Status:{" "}
+            <strong
+              style={{
+                color:
+                  config.color,
+              }}
+            >
+              {config.label}
+            </strong>
+          </p>
+
+          <p className="mt-2 text-xs text-slate-500">
+            Current Location
+          </p>
+
+          <p className="text-xs">
+            {latitude.toFixed(6)},{" "}
+            {longitude.toFixed(6)}
+          </p>
+
+          {responder.last_location_at && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              Last update:{" "}
+              {new Date(
+                responder.last_location_at
+              ).toLocaleTimeString()}
+            </p>
+          )}
+        </div>
+      </Popup>
+    </CircleMarker>
+  );
+}
 
 /**
- * ============================================================
- * MAIN MAP
- * ============================================================
+ * Main ResQLink operational map.
  */
-
 export default function IncidentMap({
   incidents = [],
   responders = [],
-  selectedIncident,
+  selectedIncident = null,
   onSelect,
 }) {
-  const validIncidents = useMemo(
-    () =>
-      incidents
-        .map(normalizeIncident)
-        .filter(Boolean),
-    [incidents]
-  );
+  const defaultCenter =
+    useMemo(
+      () => [
+        28.6139,
+        77.209,
+      ],
+      []
+    );
 
   return (
-    <div className="relative h-full min-h-[460px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl lg:min-h-[540px]">
+    <div className="relative h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
       <MapContainer
-        center={DEFAULT_CENTER}
-        zoom={DEFAULT_ZOOM}
+        center={defaultCenter}
+        zoom={11}
         scrollWheelZoom
-        className="h-full min-h-[460px] w-full lg:min-h-[540px]"
+        className="h-full min-h-[500px] w-full"
       >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
@@ -367,52 +352,59 @@ export default function IncidentMap({
         />
 
         <MapFocus
-          incident={selectedIncident}
-        />
-
-        <MapAutoFit
-          incidents={validIncidents}
-          selectedIncident={
+          incident={
             selectedIncident
           }
         />
 
-        {validIncidents.map(
+        {incidents.map(
           (incident) => (
             <IncidentMarker
               key={incident.id}
               incident={incident}
-              selected={
-                selectedIncident?.id ===
-                incident.id
-              }
               onSelect={onSelect}
             />
           )
         )}
 
-        <MapOverlay
-          incidents={validIncidents}
-          responders={responders}
-        />
+        {responders.map(
+          (responder) => (
+            <ResponderMarker
+              key={responder.id}
+              responder={responder}
+            />
+          )
+        )}
       </MapContainer>
 
-      {/* No valid incidents */}
-      {validIncidents.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 z-[900] flex items-center justify-center">
-          <div className="rounded-2xl border border-slate-700 bg-slate-950/90 px-6 py-5 text-center shadow-2xl backdrop-blur">
-            <Navigation className="mx-auto h-7 w-7 text-slate-600" />
+      <MapOverlay
+        incidents={incidents}
+        responders={responders}
+      />
 
-            <p className="mt-3 text-sm font-semibold text-slate-300">
-              Awaiting incident coordinates
-            </p>
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
+        <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+            High
+          </span>
 
-            <p className="mt-1 text-xs text-slate-600">
-              New emergency reports will appear on the map automatically.
-            </p>
-          </div>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+            Medium
+          </span>
+
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            Low
+          </span>
+
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+            Responder
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 
 import MapOverlay from "./MapOverlay";
 
+
 const severityConfig = {
   high: {
     color: "#ef4444",
@@ -29,6 +30,7 @@ const severityConfig = {
     radius: 8,
   },
 };
+
 
 const responderStatusConfig = {
   available: {
@@ -47,13 +49,12 @@ const responderStatusConfig = {
   },
 };
 
+
 function isValidCoordinate(
   latitude,
   longitude
 ) {
   return (
-    typeof latitude === "number" &&
-    typeof longitude === "number" &&
     Number.isFinite(latitude) &&
     Number.isFinite(longitude) &&
     latitude >= -90 &&
@@ -63,10 +64,13 @@ function isValidCoordinate(
   );
 }
 
-/**
- * Moves the map to the currently selected
- * incident.
- */
+
+/*
+============================================================
+MAP FOCUS
+============================================================
+*/
+
 function MapFocus({
   incident,
 }) {
@@ -93,20 +97,30 @@ function MapFocus({
     }
 
     map.flyTo(
-      [latitude, longitude],
+      [
+        latitude,
+        longitude,
+      ],
       14,
       {
         duration: 0.8,
       }
     );
-  }, [incident, map]);
+  }, [
+    incident,
+    map,
+  ]);
 
   return null;
 }
 
-/**
- * Individual emergency incident marker.
- */
+
+/*
+============================================================
+INCIDENT MARKER
+============================================================
+*/
+
 function IncidentMarker({
   incident,
   onSelect,
@@ -128,21 +142,20 @@ function IncidentMarker({
 
   const severity =
     String(
-      incident.severity || "low"
+      incident.severity ||
+        "low"
     ).toLowerCase();
 
   const config =
-    severityConfig[severity] ||
+    severityConfig[
+      severity
+    ] ||
     severityConfig.low;
-
-  const type =
-    String(
-      incident.type || "Emergency"
-    );
 
   const status =
     String(
-      incident.status || "pending"
+      incident.status ||
+        "pending"
     );
 
   return (
@@ -151,14 +164,21 @@ function IncidentMarker({
         latitude,
         longitude,
       ]}
-      radius={config.radius}
+      radius={
+        config.radius
+      }
       pathOptions={{
-        color: config.color,
-        fillColor: config.color,
+        color:
+          config.color,
+
+        fillColor:
+          config.color,
+
         fillOpacity:
           severity === "high"
             ? 0.9
             : 0.75,
+
         weight:
           severity === "high"
             ? 3
@@ -166,14 +186,19 @@ function IncidentMarker({
       }}
       eventHandlers={{
         click: () =>
-          onSelect?.(incident),
+          onSelect?.(
+            incident
+          ),
       }}
     >
       <Popup>
         <div className="min-w-[190px]">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="font-bold">
-              {type.toUpperCase()}
+              {String(
+                incident.type ||
+                  "Emergency"
+              ).toUpperCase()}
             </p>
 
             <span
@@ -181,6 +206,7 @@ function IncidentMarker({
               style={{
                 backgroundColor:
                   `${config.color}22`,
+
                 color:
                   config.color,
               }}
@@ -193,7 +219,7 @@ function IncidentMarker({
             Status:{" "}
             <strong>
               {status
-                .replace(
+                .replaceAll(
                   "_",
                   " "
                 )
@@ -205,13 +231,13 @@ function IncidentMarker({
             Coordinates
           </p>
 
-          <p className="text-xs">
+          <p className="font-mono text-xs">
             {latitude.toFixed(6)},{" "}
             {longitude.toFixed(6)}
           </p>
 
           {incident.responder_id && (
-            <p className="mt-2 text-xs text-blue-600">
+            <p className="mt-2 text-xs font-semibold text-blue-600">
               Responder assigned
             </p>
           )}
@@ -221,9 +247,13 @@ function IncidentMarker({
   );
 }
 
-/**
- * Individual responder marker.
- */
+
+/*
+============================================================
+RESPONDER MARKER
+============================================================
+*/
+
 function ResponderMarker({
   responder,
 }) {
@@ -262,9 +292,14 @@ function ResponderMarker({
       ]}
       radius={8}
       pathOptions={{
-        color: config.color,
-        fillColor: config.color,
+        color:
+          config.color,
+
+        fillColor:
+          config.color,
+
         fillOpacity: 0.95,
+
         weight: 3,
       }}
     >
@@ -301,14 +336,14 @@ function ResponderMarker({
             Current Location
           </p>
 
-          <p className="text-xs">
+          <p className="font-mono text-xs">
             {latitude.toFixed(6)},{" "}
             {longitude.toFixed(6)}
           </p>
 
           {responder.last_location_at && (
             <p className="mt-2 text-[11px] text-slate-500">
-              Last update:{" "}
+              Updated{" "}
               {new Date(
                 responder.last_location_at
               ).toLocaleTimeString()}
@@ -320,9 +355,13 @@ function ResponderMarker({
   );
 }
 
-/**
- * Main ResQLink operational map.
- */
+
+/*
+============================================================
+MAIN MAP
+============================================================
+*/
+
 export default function IncidentMap({
   incidents = [],
   responders = [],
@@ -341,7 +380,9 @@ export default function IncidentMap({
   return (
     <div className="relative h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
       <MapContainer
-        center={defaultCenter}
+        center={
+          defaultCenter
+        }
         zoom={11}
         scrollWheelZoom
         className="h-full min-h-[500px] w-full"
@@ -361,8 +402,12 @@ export default function IncidentMap({
           (incident) => (
             <IncidentMarker
               key={incident.id}
-              incident={incident}
-              onSelect={onSelect}
+              incident={
+                incident
+              }
+              onSelect={
+                onSelect
+              }
             />
           )
         )}
@@ -370,41 +415,65 @@ export default function IncidentMap({
         {responders.map(
           (responder) => (
             <ResponderMarker
-              key={responder.id}
-              responder={responder}
+              key={
+                responder.id
+              }
+              responder={
+                responder
+              }
             />
           )
         )}
       </MapContainer>
 
       <MapOverlay
-        incidents={incidents}
-        responders={responders}
+        incidents={
+          incidents
+        }
+        responders={
+          responders
+        }
       />
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-            High
-          </span>
+          <Legend
+            className="bg-red-500"
+            label="High"
+          />
 
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-            Medium
-          </span>
+          <Legend
+            className="bg-amber-500"
+            label="Medium"
+          />
 
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            Low
-          </span>
+          <Legend
+            className="bg-emerald-500"
+            label="Low"
+          />
 
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-            Responder
-          </span>
+          <Legend
+            className="bg-blue-500"
+            label="Responder"
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+
+function Legend({
+  className,
+  label,
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className={`h-2.5 w-2.5 rounded-full ${className}`}
+      />
+
+      {label}
+    </span>
   );
 }

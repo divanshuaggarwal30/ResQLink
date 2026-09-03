@@ -1,10 +1,7 @@
 import {
-  useEffect,
   useMemo,
   useState,
 } from "react";
-
-import IncidentMap from "../components/admin/IncidentMap";
 
 import {
   AlertTriangle,
@@ -12,28 +9,38 @@ import {
   Flame,
   LogOut,
   MapPin,
-  Navigation as NavigationIcon,
   Radio,
   RefreshCw,
   ShieldCheck,
   UserRound,
   Users,
+  Wifi,
 } from "lucide-react";
+
+import IncidentMap from "../components/admin/IncidentMap";
 
 import { useAuth } from "../contexts/AuthContext";
 
-import { dispatchIncident } from "../services/incidentService";
+import {
+  dispatchIncident,
+} from "../services/incidentService";
 
-import { useIncidents } from "../hooks/useIncidents";
+import {
+  useIncidents,
+} from "../hooks/useIncidents";
 
-import { useResponders } from "../hooks/useResponders";
+import {
+  useResponders,
+} from "../hooks/useResponders";
+
 
 const severityStyles = {
   high: {
     badge:
       "border-red-500/30 bg-red-500/10 text-red-300",
 
-    icon: "text-red-400",
+    icon:
+      "text-red-400",
 
     border:
       "border-red-500/40",
@@ -43,7 +50,8 @@ const severityStyles = {
     badge:
       "border-amber-500/30 bg-amber-500/10 text-amber-300",
 
-    icon: "text-amber-400",
+    icon:
+      "text-amber-400",
 
     border:
       "border-amber-500/30",
@@ -53,12 +61,14 @@ const severityStyles = {
     badge:
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
 
-    icon: "text-emerald-400",
+    icon:
+      "text-emerald-400",
 
     border:
       "border-emerald-500/20",
   },
 };
+
 
 const typeLabels = {
   flood: "Flood",
@@ -67,20 +77,21 @@ const typeLabels = {
   structural: "Structural",
 };
 
+
 function formatTime(date) {
   if (!date) {
     return "Unknown";
   }
 
-  return new Date(date).toLocaleTimeString(
-    [],
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }
-  );
+  return new Date(
+    date
+  ).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
+
 
 function formatStatus(status) {
   if (!status) {
@@ -89,16 +100,19 @@ function formatStatus(status) {
 
   return String(status)
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
     );
 }
 
-/**
- * ============================================================
- * INCIDENT CARD
- * ============================================================
- */
+
+/*
+============================================================
+INCIDENT CARD
+============================================================
+*/
 
 function IncidentCard({
   incident,
@@ -108,10 +122,12 @@ function IncidentCard({
   const style =
     severityStyles[
       incident.severity
-    ] || severityStyles.low;
+    ] ||
+    severityStyles.low;
 
   const isHigh =
-    incident.severity === "high";
+    incident.severity ===
+    "high";
 
   return (
     <button
@@ -143,13 +159,16 @@ function IncidentCard({
             <p className="truncate font-semibold text-white">
               {typeLabels[
                 incident.type
-              ] || incident.type}
+              ] ||
+                incident.type}
             </p>
 
             <span
               className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${style.badge}`}
             >
-              {incident.severity}
+              {
+                incident.severity
+              }
             </span>
           </div>
 
@@ -173,12 +192,18 @@ function IncidentCard({
             ).toFixed(4)}
           </div>
 
-          <div className="mt-2">
+          <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
               {formatStatus(
                 incident.status
               )}
             </span>
+
+            {incident.responder_id && (
+              <span className="text-[10px] font-semibold text-blue-400">
+                ASSIGNED
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -186,11 +211,12 @@ function IncidentCard({
   );
 }
 
-/**
- * ============================================================
- * MAIN
- * ============================================================
- */
+
+/*
+============================================================
+MAIN
+============================================================
+*/
 
 export default function AdminDashboard() {
   const {
@@ -205,27 +231,12 @@ export default function AdminDashboard() {
     reload,
   } = useIncidents();
 
-  /**
-   * ==========================================================
-   * REALTIME RESPONDERS
-   * ==========================================================
-   *
-   * useResponders() handles:
-   *
-   * 1. Initial responder fetch
-   * 2. INSERT events
-   * 3. UPDATE events
-   * 4. DELETE events
-   * 5. Realtime GPS updates
-   *
-   * This means the Admin map receives responder
-   * location changes without a page refresh.
-   */
-
   const {
     responders,
-    loading: respondersLoading,
-    error: respondersError,
+    loading:
+      respondersLoading,
+    error:
+      respondersError,
   } = useResponders();
 
   const [
@@ -248,125 +259,149 @@ export default function AdminDashboard() {
     setActionError,
   ] = useState("");
 
-  /**
-   * ==========================================================
-   * KEEP SELECTED INCIDENT IN SYNC
-   * ==========================================================
-   */
 
-  useEffect(() => {
-    if (!selectedIncident) {
-      return;
-    }
+  /*
+  ==========================================================
+  SELECTED INCIDENT SYNC
+  ==========================================================
+  */
 
-    const updatedIncident =
-      incidents.find(
-        (incident) =>
-          incident.id ===
-          selectedIncident.id
+  const currentSelectedIncident =
+    useMemo(() => {
+      if (!selectedIncident) {
+        return null;
+      }
+
+      return (
+        incidents.find(
+          (incident) =>
+            incident.id ===
+            selectedIncident.id
+        ) || null
       );
+    }, [
+      incidents,
+      selectedIncident,
+    ]);
 
-    if (updatedIncident) {
-      setSelectedIncident(
-        updatedIncident
-      );
-    } else {
-      setSelectedIncident(null);
-      setSelectedResponder("");
-    }
-  }, [
-    incidents,
-    selectedIncident,
-  ]);
 
-  /**
-   * ==========================================================
-   * KEEP RESPONDER SELECTION VALID
-   * ==========================================================
-   *
-   * If a responder goes offline or disappears from the
-   * realtime responder list, clear the selection.
-   */
+  /*
+  ==========================================================
+  STATS
+  ==========================================================
+  */
 
-  useEffect(() => {
-    if (!selectedResponder) {
-      return;
-    }
-
-    const responderExists =
-      responders.some(
-        (responder) =>
-          responder.id ===
-          selectedResponder
-      );
-
-    if (!responderExists) {
-      setSelectedResponder("");
-    }
-  }, [
-    responders,
-    selectedResponder,
-  ]);
-
-  /**
-   * ==========================================================
-   * STATS
-   * ==========================================================
-   */
-
-  const stats = useMemo(() => {
-    return {
-      total:
-        incidents.length,
-
-      high:
+  const stats =
+    useMemo(() => {
+      const active =
         incidents.filter(
+          (incident) =>
+            incident.status !==
+            "resolved"
+        );
+
+      const high =
+        active.filter(
           (incident) =>
             incident.severity ===
             "high"
-        ).length,
+        );
 
-      medium:
-        incidents.filter(
-          (incident) =>
-            incident.severity ===
-            "medium"
-        ).length,
-
-      pending:
-        incidents.filter(
+      const pending =
+        active.filter(
           (incident) =>
             incident.status ===
-            "pending"
-        ).length,
-    };
-  }, [incidents]);
+            "pending" &&
+            !incident.responder_id
+        );
 
-  /**
-   * ==========================================================
-   * AVAILABLE RESPONDERS
-   * ==========================================================
-   */
+      const missions =
+        active.filter(
+          (incident) =>
+            Boolean(
+              incident.responder_id
+            )
+        );
+
+      const available =
+        responders.filter(
+          (responder) =>
+            responder.availability ===
+            "available"
+        );
+
+      const busy =
+        responders.filter(
+          (responder) =>
+            responder.availability ===
+            "busy"
+        );
+
+      return {
+        active:
+          active.length,
+
+        high:
+          high.length,
+
+        pending:
+          pending.length,
+
+        missions:
+          missions.length,
+
+        available:
+          available.length,
+
+        busy:
+          busy.length,
+      };
+    }, [
+      incidents,
+      responders,
+    ]);
+
+
+  /*
+  ==========================================================
+  AVAILABLE RESPONDERS
+  ==========================================================
+  */
 
   const availableResponders =
     useMemo(() => {
-      return responders.filter(
-        (responder) =>
-          responder.availability ===
-            "available" ||
-          !responder.availability
-      );
-    }, [responders]);
+      return responders
+        .filter(
+          (responder) =>
+            responder.role ===
+              "responder" &&
+            responder.availability ===
+              "available"
+        )
+        .sort(
+          (a, b) =>
+            (
+              a.full_name ||
+              ""
+            ).localeCompare(
+              b.full_name ||
+                ""
+            )
+        );
+    }, [
+      responders,
+    ]);
 
-  /**
-   * ==========================================================
-   * DISPATCH
-   * ==========================================================
-   */
+
+  /*
+  ==========================================================
+  DISPATCH
+  ==========================================================
+  */
 
   const handleDispatch =
     async () => {
-      if (!selectedIncident) {
+      if (!currentSelectedIncident) {
         setActionError(
           "Select an incident first."
         );
@@ -374,9 +409,40 @@ export default function AdminDashboard() {
         return;
       }
 
+      if (
+        currentSelectedIncident.status !==
+          "pending" ||
+        currentSelectedIncident.responder_id
+      ) {
+        setActionError(
+          "This incident is no longer available for dispatch."
+        );
+
+        return;
+      }
+
       if (!selectedResponder) {
         setActionError(
-          "Select a responder first."
+          "Select an available responder first."
+        );
+
+        return;
+      }
+
+      const responder =
+        responders.find(
+          (item) =>
+            item.id ===
+            selectedResponder
+        );
+
+      if (
+        !responder ||
+        responder.availability !==
+          "available"
+      ) {
+        setActionError(
+          "That responder is no longer available."
         );
 
         return;
@@ -387,17 +453,23 @@ export default function AdminDashboard() {
 
       try {
         await dispatchIncident(
-          selectedIncident.id,
+          currentSelectedIncident.id,
           selectedResponder
         );
 
-        setSelectedIncident(null);
+        setSelectedIncident(
+          null
+        );
+
         setSelectedResponder("");
       } catch (err) {
-        console.error(err);
+        console.error(
+          "Dispatch failed:",
+          err
+        );
 
         setActionError(
-          err.message ||
+          err?.message ||
             "Unable to dispatch responder."
         );
       } finally {
@@ -405,20 +477,17 @@ export default function AdminDashboard() {
       }
     };
 
-  /**
-   * ==========================================================
-   * RENDER
-   * ==========================================================
-   */
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+
       {/* ====================================================
           HEADER
       ==================================================== */}
 
       <header className="border-b border-slate-800 bg-slate-950">
         <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-red-500/10 p-2">
               <ShieldCheck className="h-5 w-5 text-red-400" />
@@ -436,10 +505,17 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
+
             <div className="hidden items-center gap-2 text-xs text-emerald-400 sm:flex">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
 
               SYSTEM ONLINE
+            </div>
+
+            <div className="hidden items-center gap-2 text-xs text-slate-500 lg:flex">
+              <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+
+              REALTIME
             </div>
 
             <span className="hidden max-w-[240px] truncate text-sm text-slate-400 md:block">
@@ -454,19 +530,23 @@ export default function AdminDashboard() {
             >
               <LogOut className="h-5 w-5" />
             </button>
+
           </div>
         </div>
       </header>
+
 
       {/* ====================================================
           STATS
       ==================================================== */}
 
       <section className="border-b border-slate-800 bg-slate-900/50 px-4 py-4 lg:px-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+
           <Stat
             label="Active Incidents"
-            value={stats.total}
+            value={stats.active}
             icon={Radio}
           />
 
@@ -478,30 +558,47 @@ export default function AdminDashboard() {
           />
 
           <Stat
-            label="Medium Severity"
-            value={stats.medium}
-            icon={Flame}
+            label="Awaiting Dispatch"
+            value={stats.pending}
+            icon={Clock3}
           />
 
           <Stat
-            label="Pending Dispatch"
-            value={stats.pending}
+            label="Active Missions"
+            value={stats.missions}
+            icon={ShieldCheck}
+          />
+
+          <Stat
+            label="Available Units"
+            value={stats.available}
             icon={Users}
           />
+
+          <Stat
+            label="Busy Units"
+            value={stats.busy}
+            icon={UserRound}
+          />
+
         </div>
       </section>
+
 
       {/* ====================================================
           MAIN
       ==================================================== */}
 
       <main className="grid min-h-[calc(100vh-137px)] lg:grid-cols-[380px_1fr]">
+
         {/* ==================================================
-            LIVE INCIDENT FEED
+            LIVE FEED
         ================================================== */}
 
         <aside className="border-r border-slate-800 bg-slate-900/30">
+
           <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
+
             <div>
               <h2 className="font-semibold">
                 Live Incidents
@@ -527,7 +624,9 @@ export default function AdminDashboard() {
                 }`}
               />
             </button>
+
           </div>
+
 
           {error && (
             <div className="m-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
@@ -535,15 +634,19 @@ export default function AdminDashboard() {
             </div>
           )}
 
+
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
+
             {loading &&
-            incidents.length === 0 ? (
+            incidents.length ===
+              0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
                 Loading incidents...
               </div>
             ) : incidents.length ===
               0 ? (
               <div className="p-8 text-center">
+
                 <Radio className="mx-auto h-8 w-8 text-slate-700" />
 
                 <p className="mt-3 font-medium text-slate-400">
@@ -553,15 +656,20 @@ export default function AdminDashboard() {
                 <p className="mt-1 text-xs text-slate-600">
                   New emergency reports will appear here automatically.
                 </p>
+
               </div>
             ) : (
               incidents.map(
                 (incident) => (
                   <IncidentCard
-                    key={incident.id}
-                    incident={incident}
+                    key={
+                      incident.id
+                    }
+                    incident={
+                      incident
+                    }
                     selected={
-                      selectedIncident?.id ===
+                      currentSelectedIncident?.id ===
                       incident.id
                     }
                     onSelect={
@@ -571,20 +679,25 @@ export default function AdminDashboard() {
                 )
               )
             )}
+
           </div>
         </aside>
+
 
         {/* ==================================================
             OPERATIONS
         ================================================== */}
 
         <section className="min-w-0 p-5 lg:p-8">
+
           <div className="mx-auto max-w-7xl">
-            {/* Heading */}
 
             <div className="mb-6">
+
               <div className="flex flex-wrap items-end justify-between gap-4">
+
                 <div>
+
                   <p className="text-xs font-semibold uppercase tracking-widest text-red-400">
                     Operations
                   </p>
@@ -594,63 +707,32 @@ export default function AdminDashboard() {
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                    Monitor live incidents, locate emergencies, and coordinate field response.
+                    Monitor incidents, track field units, and coordinate response in real time.
                   </p>
+
                 </div>
 
                 <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
 
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                     Live Operations
                   </span>
+
                 </div>
+
               </div>
+
             </div>
 
-            {/* =================================================
-                RESPONDER STATUS
-            ================================================= */}
-
-            <div className="mb-6 grid gap-3 sm:grid-cols-3">
-              <ResponderStat
-                label="Total Responders"
-                value={responders.length}
-                icon={Users}
-              />
-
-              <ResponderStat
-                label="Available"
-                value={
-                  availableResponders.length
-                }
-                icon={ShieldCheck}
-              />
-
-              <ResponderStat
-                label="Live Tracking"
-                value={
-                  responders.filter(
-                    (responder) =>
-                      responder.latitude != null &&
-                      responder.longitude != null
-                  ).length
-                }
-                icon={NavigationIcon}
-              />
-            </div>
-
-            {respondersError && (
-              <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                {respondersError}
-              </div>
-            )}
 
             {/* =================================================
-                LIVE MAP
+                MAP
             ================================================= */}
 
             <div className="mb-6">
+
               <IncidentMap
                 incidents={
                   incidents
@@ -659,20 +741,24 @@ export default function AdminDashboard() {
                   responders
                 }
                 selectedIncident={
-                  selectedIncident
+                  currentSelectedIncident
                 }
                 onSelect={
                   setSelectedIncident
                 }
               />
+
             </div>
+
 
             {/* =================================================
                 INCIDENT CONTROL
             ================================================= */}
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:p-6">
+
               <div className="mb-6">
+
                 <p className="text-xs font-semibold uppercase tracking-widest text-red-400">
                   Incident Control
                 </p>
@@ -682,13 +768,18 @@ export default function AdminDashboard() {
                 </h3>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Select an active emergency to coordinate a field response.
+                  Dispatch is validated and executed by the database.
                 </p>
+
               </div>
 
-              {!selectedIncident ? (
+
+              {!currentSelectedIncident ? (
+
                 <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50">
+
                   <div className="px-6 text-center">
+
                     <AlertTriangle className="mx-auto h-10 w-10 text-slate-700" />
 
                     <p className="mt-4 font-medium text-slate-400">
@@ -696,77 +787,102 @@ export default function AdminDashboard() {
                     </p>
 
                     <p className="mt-2 max-w-sm text-sm text-slate-600">
-                      Select an incident from the feed or click a map marker to view details.
+                      Select an incident from the feed or click a map marker.
                     </p>
+
                   </div>
+
                 </div>
+
               ) : (
+
                 <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-                  {/* Incident Details */}
+
+                  {/* INCIDENT */}
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
+
                     <div className="flex items-start justify-between gap-4">
+
                       <div>
+
                         <div className="flex items-center gap-3">
+
                           <div
                             className={`rounded-xl border p-3 ${
                               severityStyles[
-                                selectedIncident.severity
+                                currentSelectedIncident.severity
                               ]?.badge ||
-                              severityStyles.low
+                              severityStyles
+                                .low
                                 .badge
                             }`}
                           >
                             <AlertTriangle
                               className={`h-6 w-6 ${
                                 severityStyles[
-                                  selectedIncident.severity
+                                  currentSelectedIncident.severity
                                 ]?.icon ||
-                                severityStyles.low
+                                severityStyles
+                                  .low
                                   .icon
                               }`}
                             />
                           </div>
 
                           <div>
+
                             <h3 className="text-xl font-bold">
-                              {typeLabels[
-                                selectedIncident.type
-                              ] ||
-                                selectedIncident.type}
+                              {
+                                typeLabels[
+                                  currentSelectedIncident
+                                    .type
+                                ] ||
+                                currentSelectedIncident
+                                  .type
+                              }
                             </h3>
 
                             <span
                               className={`mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-bold uppercase ${
                                 severityStyles[
-                                  selectedIncident.severity
+                                  currentSelectedIncident
+                                    .severity
                                 ]?.badge ||
-                                severityStyles.low
+                                severityStyles
+                                  .low
                                   .badge
                               }`}
                             >
                               {
-                                selectedIncident.severity
+                                currentSelectedIncident
+                                  .severity
                               }{" "}
                               severity
                             </span>
+
                           </div>
+
                         </div>
+
                       </div>
 
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase text-amber-300">
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold uppercase text-slate-300">
                         {formatStatus(
-                          selectedIncident.status
+                          currentSelectedIncident.status
                         )}
                       </span>
+
                     </div>
 
+
                     <div className="mt-8 grid gap-4 sm:grid-cols-2">
+
                       <InfoRow
                         icon={MapPin}
                         label="Latitude"
                         value={Number(
-                          selectedIncident.latitude
+                          currentSelectedIncident.latitude
                         ).toFixed(6)}
                       />
 
@@ -774,7 +890,7 @@ export default function AdminDashboard() {
                         icon={MapPin}
                         label="Longitude"
                         value={Number(
-                          selectedIncident.longitude
+                          currentSelectedIncident.longitude
                         ).toFixed(6)}
                       />
 
@@ -782,7 +898,7 @@ export default function AdminDashboard() {
                         icon={Clock3}
                         label="Reported"
                         value={formatTime(
-                          selectedIncident.created_at
+                          currentSelectedIncident.created_at
                         )}
                       />
 
@@ -790,37 +906,47 @@ export default function AdminDashboard() {
                         icon={UserRound}
                         label="Incident ID"
                         value={String(
-                          selectedIncident.id
+                          currentSelectedIncident.id
                         ).slice(0, 8)}
                       />
+
                     </div>
+
                   </div>
 
-                  {/* Dispatch */}
+
+                  {/* DISPATCH */}
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
+
                     <div className="flex items-center gap-3">
+
                       <div className="rounded-lg bg-blue-500/10 p-2">
                         <Users className="h-5 w-5 text-blue-400" />
                       </div>
 
                       <div>
+
                         <h3 className="font-semibold">
                           Dispatch Field Responder
                         </h3>
 
                         <p className="text-xs text-slate-500">
-                          Assign an available response team
+                          Only currently available units can be dispatched.
                         </p>
+
                       </div>
+
                     </div>
 
+
                     <div className="mt-6">
+
                       <label
                         htmlFor="responder"
                         className="mb-2 block text-sm font-medium text-slate-300"
                       >
-                        Responder
+                        Available Responder
                       </label>
 
                       <select
@@ -836,15 +962,20 @@ export default function AdminDashboard() {
                           )
                         }
                         disabled={
-                          selectedIncident.status !==
-                          "pending"
+                          currentSelectedIncident.status !==
+                            "pending" ||
+                          Boolean(
+                            currentSelectedIncident.responder_id
+                          ) ||
+                          respondersLoading
                         }
                         className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
+
                         <option value="">
                           {respondersLoading
                             ? "Loading responders..."
-                            : "Select a responder..."}
+                            : "Select available responder..."}
                         </option>
 
                         {availableResponders.map(
@@ -859,31 +990,40 @@ export default function AdminDashboard() {
                                 responder.id
                               }
                             >
+                              🟢{" "}
                               {responder.full_name ||
                                 "Unnamed Responder"}
-                              {" "}
-                              —{" "}
-                              {responder.availability ||
-                                "available"}
                             </option>
                           )
                         )}
+
                       </select>
+
                     </div>
 
-                    {availableResponders.length ===
-                      0 &&
-                      !respondersLoading && (
-                        <p className="mt-3 text-xs text-amber-400">
+
+                    {respondersError && (
+                      <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                        {respondersError}
+                      </div>
+                    )}
+
+
+                    {!respondersLoading &&
+                      availableResponders.length ===
+                        0 && (
+                        <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
                           No responders are currently available.
-                        </p>
+                        </div>
                       )}
+
 
                     {actionError && (
                       <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                         {actionError}
                       </div>
                     )}
+
 
                     <button
                       type="button"
@@ -893,11 +1033,15 @@ export default function AdminDashboard() {
                       disabled={
                         dispatching ||
                         !selectedResponder ||
-                        selectedIncident.status !==
-                          "pending"
+                        currentSelectedIncident.status !==
+                          "pending" ||
+                        Boolean(
+                          currentSelectedIncident.responder_id
+                        )
                       }
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-4 font-bold transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
                     >
+
                       {dispatching ? (
                         <>
                           <RefreshCw className="h-5 w-5 animate-spin" />
@@ -908,29 +1052,38 @@ export default function AdminDashboard() {
                         <>
                           <Radio className="h-5 w-5" />
 
-                          {selectedIncident.status ===
-                          "pending"
-                            ? "DISPATCH TEAM"
-                            : "ALREADY DISPATCHED"}
+                          {currentSelectedIncident.responder_id
+                            ? "ALREADY DISPATCHED"
+                            : "DISPATCH TEAM"}
                         </>
                       )}
+
                     </button>
+
                   </div>
+
                 </div>
+
               )}
+
             </div>
+
           </div>
+
         </section>
+
       </main>
+
     </div>
   );
 }
 
-/**
- * ============================================================
- * STAT
- * ============================================================
- */
+
+/*
+============================================================
+STAT
+============================================================
+*/
 
 function Stat({
   label,
@@ -940,7 +1093,9 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+
       <div className="flex items-center justify-between">
+
         <span className="text-xs text-slate-500">
           {label}
         </span>
@@ -952,48 +1107,23 @@ function Stat({
               : "text-slate-500"
           }`}
         />
+
       </div>
 
       <p className="mt-2 text-2xl font-bold">
         {value}
       </p>
+
     </div>
   );
 }
 
-/**
- * ============================================================
- * RESPONDER STAT
- * ============================================================
- */
 
-function ResponderStat({
-  label,
-  value,
-  icon: Icon,
-}) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">
-          {label}
-        </span>
-
-        <Icon className="h-4 w-4 text-blue-400" />
-      </div>
-
-      <p className="mt-2 text-2xl font-bold text-white">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/**
- * ============================================================
- * INFO ROW
- * ============================================================
- */
+/*
+============================================================
+INFO ROW
+============================================================
+*/
 
 function InfoRow({
   icon: Icon,
@@ -1002,15 +1132,19 @@ function InfoRow({
 }) {
   return (
     <div className="rounded-xl bg-slate-900 p-4">
+
       <div className="flex items-center gap-2 text-xs text-slate-500">
+
         <Icon className="h-3.5 w-3.5" />
 
         {label}
+
       </div>
 
       <p className="mt-2 truncate font-mono text-sm text-slate-200">
         {value}
       </p>
+
     </div>
   );
 }

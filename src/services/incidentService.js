@@ -1,17 +1,15 @@
 import { supabase } from "../lib/supabase";
 
-/**
- * ============================================================
- * CIVILIAN
- * ============================================================
- */
+/* =========================================================
+   CIVILIAN
+   ========================================================= */
 
-export async function createIncident({
+export const createIncident = async ({
   type,
   severity,
   latitude,
   longitude,
-}) {
+}) => {
   const {
     data: { user },
     error: userError,
@@ -22,9 +20,7 @@ export async function createIncident({
   }
 
   if (!user) {
-    throw new Error(
-      "You must be logged in to report an emergency."
-    );
+    throw new Error("You must be logged in to report an incident.");
   }
 
   const { data, error } = await supabase
@@ -33,128 +29,119 @@ export async function createIncident({
       reported_by: user.id,
       type,
       severity,
-      latitude,
-      longitude,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      status: "pending",
     })
     .select()
     .single();
 
   if (error) {
+    console.error("createIncident:", error);
     throw error;
   }
 
   return data;
-}
+};
 
+export const getMyIncidents = async () => {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-/**
- * ============================================================
- * ADMIN
- * ============================================================
- */
+  if (userError) {
+    throw userError;
+  }
 
-export async function getActiveIncidents() {
+  if (!user) {
+    throw new Error("You must be logged in.");
+  }
+
   const { data, error } = await supabase
     .from("incidents")
     .select("*")
-    .neq("status", "resolved")
+    .eq("reported_by", user.id)
     .order("created_at", {
       ascending: false,
     });
 
   if (error) {
+    console.error("getMyIncidents:", error);
     throw error;
   }
 
-  return data ?? [];
-}
+  return data || [];
+};
 
 
-export async function getResponders() {
+/* =========================================================
+   ADMIN
+   ========================================================= */
+
+export const getActiveIncidents = async () => {
   const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("role", "responder")
-    .order("full_name", {
-      ascending: true,
+    .from("incidents")
+    .select("*")
+    .order("created_at", {
+      ascending: false,
     });
 
   if (error) {
+    console.error("getActiveIncidents:", error);
     throw error;
   }
 
-  return data ?? [];
-}
+  return data || [];
+};
 
 
-/**
- * Dispatch an incident to a responder.
- *
- * IMPORTANT:
- * Dispatch does NOT change the incident status.
- *
- * Workflow:
- *
- * pending
- *    ↓
- * Admin dispatch
- *    ↓
- * pending + responder_id
- *    ↓
- * Responder accepts
- *    ↓
- * accepted
- */
-export async function dispatchIncident(
+export const dispatchIncident = async (
   incidentId,
   responderId
-) {
-  if (!incidentId) {
-    throw new Error("Incident ID is required.");
-  }
-
-  if (!responderId) {
-    throw new Error("Responder ID is required.");
-  }
-
-  const { data, error } = await supabase
-    .from("incidents")
-    .update({
-      responder_id: responderId,
-      assigned_at: new Date().toISOString(),
-    })
-    .eq("id", incidentId)
-    .eq("status", "pending")
-    .select()
-    .single();
+) => {
+  const { data, error } = await supabase.rpc(
+    "dispatch_incident",
+    {
+      p_incident_id: incidentId,
+      p_responder_id: responderId,
+    }
+  );
 
   if (error) {
+    console.error("dispatchIncident:", error);
     throw error;
-  }
-
-  if (!data) {
-    throw new Error(
-      "Incident could not be dispatched. It may already be assigned or no longer be pending."
-    );
   }
 
   return data;
-}
+};
 
+
+export const getIncidentArchive = async () => {
+  const { data, error } = await supabase
+    .from("incident_archive")
+    .select("*")
+    .order("archived_at", {
+      ascending: false,
+    });
+
+  if (error) {
+    console.error("getIncidentArchive:", error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+
+/* =========================================================
+   RESPONDER
+   ========================================================= */
 
 /**
- * ============================================================
- * RESPONDER
- * ============================================================
+ * Get incidents assigned to the currently logged-in responder.
  */
-
-/**
- * Get only incidents assigned to the currently
- * authenticated responder.
- *
- * RLS remains the actual security boundary.
- */
-export async function getMyAssignedIncidents() {
+export const getMyAssignedIncidents = async () => {
   const {
     data: { user },
     error: userError,
@@ -172,107 +159,74 @@ export async function getMyAssignedIncidents() {
     .from("incidents")
     .select("*")
     .eq("responder_id", user.id)
-    .neq("status", "resolved")
     .order("created_at", {
       ascending: false,
     });
 
   if (error) {
+    console.error(
+      "getMyAssignedIncidents:",
+      error
+    );
+
     throw error;
   }
 
-  return data ?? [];
-}
+  return data || [];
+};
 
 
 /**
- * Update responder mission status through the
- * PostgreSQL RPC.
+ * Update responder mission status.
  *
- * Valid transitions are enforced by PostgreSQL:
+ * Supported actions:
  *
- * pending  -> accepted
- * accepted -> arrived
- * arrived  -> resolved
+ * "accept"
+ * "arrive"
+ * "resolve"
  *
- * The responder cannot directly manipulate the
- * incident status from the client.
+ * The database RPC is responsible for validating
+ * the responder and allowed state transition.
  */
-export async function updateIncidentStatus(
-  incidentId,
-  status
-) {
-  if (!incidentId) {
-    throw new Error("Incident ID is required.");
-  }
-
-  const allowedStatuses = [
-    "accepted",
-    "arrived",
-    "resolved",
-  ];
-
-  if (!allowedStatuses.includes(status)) {
-    throw new Error(
-      "Invalid responder status."
-    );
-  }
-
+export const updateIncidentStatus = async (
+ incidentId,
+ action
+) => {
   const { data, error } = await supabase.rpc(
-    "update_incident_status",
+    "update_mission_stage",
     {
-      incident_id: incidentId,
-      new_status: status,
+      p_incident_id: incidentId,
+      p_action: action,
     }
   );
 
   if (error) {
+    console.error(
+      "updateIncidentStatus:",
+      error
+    );
+
     throw error;
   }
 
   return data;
-}
+};
 
 
-/**
- * ============================================================
- * REALTIME — ADMIN
- * ============================================================
- */
-
-export function subscribeToIncidents(callback) {
-  const channel = supabase
-    .channel("admin-incidents")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "incidents",
-      },
-      (payload) => {
-        callback(payload);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}
-
+/* =========================================================
+   REALTIME
+   ========================================================= */
 
 /**
- * ============================================================
- * REALTIME — RESPONDER
- * ============================================================
+ * Generic incident realtime subscription.
  */
-
-export function subscribeToResponderIncidents(
+export const subscribeToIncidents = (
   callback
-) {
+) => {
   const channel = supabase
-    .channel("responder-incidents")
+    .channel(
+      `incidents-${Date.now()}`
+    )
     .on(
       "postgres_changes",
       {
@@ -289,4 +243,36 @@ export function subscribeToResponderIncidents(
   return () => {
     supabase.removeChannel(channel);
   };
-}
+};
+
+
+/**
+ * Responder-specific realtime subscription.
+ *
+ * We listen for incident changes and let the
+ * responder hook refresh its assigned incidents.
+ */
+export const subscribeToResponderIncidents = (
+  callback
+) => {
+  const channel = supabase
+    .channel(
+      `responder-incidents-${Date.now()}`
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "incidents",
+      },
+      (payload) => {
+        callback(payload);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};

@@ -33,7 +33,6 @@ import {
   useResponders,
 } from "../hooks/useResponders";
 
-
 const severityStyles = {
   high: {
     badge:
@@ -69,14 +68,12 @@ const severityStyles = {
   },
 };
 
-
 const typeLabels = {
   flood: "Flood",
   fire: "Fire",
   medical: "Medical",
   structural: "Structural",
 };
-
 
 function formatTime(date) {
   if (!date) {
@@ -92,7 +89,6 @@ function formatTime(date) {
   });
 }
 
-
 function formatStatus(status) {
   if (!status) {
     return "Unknown";
@@ -106,13 +102,6 @@ function formatStatus(status) {
         letter.toUpperCase()
     );
 }
-
-
-/*
-============================================================
-INCIDENT CARD
-============================================================
-*/
 
 function IncidentCard({
   incident,
@@ -211,18 +200,8 @@ function IncidentCard({
   );
 }
 
-
-/*
-============================================================
-MAIN
-============================================================
-*/
-
 export default function AdminDashboard() {
-  const {
-    user,
-    signOut,
-  } = useAuth();
+  const { user, signOut } = useAuth();
 
   const {
     incidents,
@@ -259,13 +238,6 @@ export default function AdminDashboard() {
     setActionError,
   ] = useState("");
 
-
-  /*
-  ==========================================================
-  SELECTED INCIDENT SYNC
-  ==========================================================
-  */
-
   const currentSelectedIncident =
     useMemo(() => {
       if (!selectedIncident) {
@@ -283,13 +255,6 @@ export default function AdminDashboard() {
       incidents,
       selectedIncident,
     ]);
-
-
-  /*
-  ==========================================================
-  STATS
-  ==========================================================
-  */
 
   const stats =
     useMemo(() => {
@@ -361,13 +326,6 @@ export default function AdminDashboard() {
       responders,
     ]);
 
-
-  /*
-  ==========================================================
-  AVAILABLE RESPONDERS
-  ==========================================================
-  */
-
   const availableResponders =
     useMemo(() => {
       return responders
@@ -391,13 +349,6 @@ export default function AdminDashboard() {
     }, [
       responders,
     ]);
-
-
-  /*
-  ==========================================================
-  DISPATCH
-  ==========================================================
-  */
 
   const handleDispatch =
     async () => {
@@ -477,13 +428,10 @@ export default function AdminDashboard() {
       }
     };
 
-
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
-      {/* ====================================================
-          HEADER
-      ==================================================== */}
+      {}
 
       <header className="border-b border-slate-800 bg-slate-950">
         <div className="flex h-16 items-center justify-between px-4 lg:px-6">
@@ -535,10 +483,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-
-      {/* ====================================================
-          STATS
-      ==================================================== */}
+      {}
 
       <section className="border-b border-slate-800 bg-slate-900/50 px-4 py-4 lg:px-6">
 
@@ -584,16 +529,11 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-
-      {/* ====================================================
-          MAIN
-      ==================================================== */}
+      {}
 
       <main className="grid min-h-[calc(100vh-137px)] lg:grid-cols-[380px_1fr]">
 
-        {/* ==================================================
-            LIVE FEED
-        ================================================== */}
+        {}
 
         <aside className="border-r border-slate-800 bg-slate-900/30">
 
@@ -627,13 +567,11 @@ export default function AdminDashboard() {
 
           </div>
 
-
           {error && (
             <div className="m-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
               {error}
             </div>
           )}
-
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
 
@@ -683,10 +621,7 @@ export default function AdminDashboard() {
           </div>
         </aside>
 
-
-        {/* ==================================================
-            OPERATIONS
-        ================================================== */}
+        {}
 
         <section className="min-w-0 p-5 lg:p-8">
 
@@ -726,10 +661,7 @@ export default function AdminDashboard() {
 
             </div>
 
-
-            {/* =================================================
-                MAP
-            ================================================= */}
+            {}
 
             <div className="mb-6">
 
@@ -750,10 +682,7 @@ export default function AdminDashboard() {
 
             </div>
 
-
-            {/* =================================================
-                INCIDENT CONTROL
-            ================================================= */}
+            {}
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:p-6">
 
@@ -772,7 +701,6 @@ export default function AdminDashboard() {
                 </p>
 
               </div>
-
 
               {!currentSelectedIncident ? (
 
@@ -798,7 +726,7 @@ export default function AdminDashboard() {
 
                 <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
 
-                  {/* INCIDENT */}
+                  {}
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
 
@@ -875,7 +803,6 @@ export default function AdminDashboard() {
 
                     </div>
 
-
                     <div className="mt-8 grid gap-4 sm:grid-cols-2">
 
                       <InfoRow
@@ -914,8 +841,7 @@ export default function AdminDashboard() {
 
                   </div>
 
-
-                  {/* DISPATCH */}
+                  {}
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
 
@@ -938,7 +864,6 @@ export default function AdminDashboard() {
                       </div>
 
                     </div>
-
 
                     <div className="mt-6">
 
@@ -1001,13 +926,11 @@ export default function AdminDashboard() {
 
                     </div>
 
-
                     {respondersError && (
                       <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                         {respondersError}
                       </div>
                     )}
-
 
                     {!respondersLoading &&
                       availableResponders.length ===
@@ -1017,13 +940,11 @@ export default function AdminDashboard() {
                         </div>
                       )}
 
-
                     {actionError && (
                       <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                         {actionError}
                       </div>
                     )}
-
 
                     <button
                       type="button"
@@ -1078,13 +999,6 @@ export default function AdminDashboard() {
   );
 }
 
-
-/*
-============================================================
-STAT
-============================================================
-*/
-
 function Stat({
   label,
   value,
@@ -1117,13 +1031,6 @@ function Stat({
     </div>
   );
 }
-
-
-/*
-============================================================
-INFO ROW
-============================================================
-*/
 
 function InfoRow({
   icon: Icon,

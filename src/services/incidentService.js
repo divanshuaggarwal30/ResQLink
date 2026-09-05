@@ -1,15 +1,15 @@
 import { supabase } from "../lib/supabase";
 
-/* =========================================================
-   CIVILIAN
-   ========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Civilian                                                                    */
+/* -------------------------------------------------------------------------- */
 
-export const createIncident = async ({
+export async function createIncident({
   type,
   severity,
   latitude,
   longitude,
-}) => {
+}) {
   const {
     data: { user },
     error: userError,
@@ -20,7 +20,9 @@ export const createIncident = async ({
   }
 
   if (!user) {
-    throw new Error("You must be logged in to report an incident.");
+    throw new Error(
+      "You must be logged in to report an incident."
+    );
   }
 
   const { data, error } = await supabase
@@ -37,14 +39,13 @@ export const createIncident = async ({
     .single();
 
   if (error) {
-    console.error("createIncident:", error);
     throw error;
   }
 
   return data;
-};
+}
 
-export const getMyIncidents = async () => {
+export async function getMyIncidents() {
   const {
     data: { user },
     error: userError,
@@ -67,19 +68,17 @@ export const getMyIncidents = async () => {
     });
 
   if (error) {
-    console.error("getMyIncidents:", error);
     throw error;
   }
 
-  return data || [];
-};
+  return data ?? [];
+}
 
+/* -------------------------------------------------------------------------- */
+/* Admin                                                                       */
+/* -------------------------------------------------------------------------- */
 
-/* =========================================================
-   ADMIN
-   ========================================================= */
-
-export const getActiveIncidents = async () => {
+export async function getActiveIncidents() {
   const { data, error } = await supabase
     .from("incidents")
     .select("*")
@@ -88,36 +87,32 @@ export const getActiveIncidents = async () => {
     });
 
   if (error) {
-    console.error("getActiveIncidents:", error);
     throw error;
   }
 
-  return data || [];
-};
+  return data ?? [];
+}
 
-
-export const dispatchIncident = async (
+export async function dispatchIncident(
   incidentId,
   responderId
-) => {
+) {
   const { data, error } = await supabase.rpc(
     "dispatch_incident",
     {
-      p_incident_id: incidentId,
-      p_responder_id: responderId,
+      target_incident_id: incidentId,
+      target_responder_id: responderId,
     }
   );
 
   if (error) {
-    console.error("dispatchIncident:", error);
     throw error;
   }
 
   return data;
-};
+}
 
-
-export const getIncidentArchive = async () => {
+export async function getIncidentArchive() {
   const { data, error } = await supabase
     .from("incident_archive")
     .select("*")
@@ -126,22 +121,17 @@ export const getIncidentArchive = async () => {
     });
 
   if (error) {
-    console.error("getIncidentArchive:", error);
     throw error;
   }
 
-  return data || [];
-};
+  return data ?? [];
+}
 
+/* -------------------------------------------------------------------------- */
+/* Responder                                                                   */
+/* -------------------------------------------------------------------------- */
 
-/* =========================================================
-   RESPONDER
-   ========================================================= */
-
-/**
- * Get incidents assigned to the currently logged-in responder.
- */
-export const getMyAssignedIncidents = async () => {
+export async function getMyAssignedIncidents() {
   const {
     data: { user },
     error: userError,
@@ -164,68 +154,72 @@ export const getMyAssignedIncidents = async () => {
     });
 
   if (error) {
-    console.error(
-      "getMyAssignedIncidents:",
-      error
-    );
-
     throw error;
   }
 
-  return data || [];
-};
+  return data ?? [];
+}
 
+export async function updateIncidentStatus(
+  incidentId,
+  status
+) {
+  const allowedStatuses = [
+    "accepted",
+    "arrived",
+    "resolved",
+  ];
 
-/**
- * Update responder mission status.
- *
- * Supported actions:
- *
- * "accept"
- * "arrive"
- * "resolve"
- *
- * The database RPC is responsible for validating
- * the responder and allowed state transition.
- */
-export const updateIncidentStatus = async (
- incidentId,
- action
-) => {
+  if (!allowedStatuses.includes(status)) {
+    throw new Error(
+      `Invalid mission status: ${status}`
+    );
+  }
+
   const { data, error } = await supabase.rpc(
-    "update_mission_stage",
+    "update_incident_status",
     {
-      p_incident_id: incidentId,
-      p_action: action,
+      incident_id: incidentId,
+      new_status: status,
     }
   );
 
   if (error) {
-    console.error(
-      "updateIncidentStatus:",
-      error
-    );
-
     throw error;
   }
 
   return data;
-};
+}
 
+/* -------------------------------------------------------------------------- */
+/* Realtime                                                                    */
+/* -------------------------------------------------------------------------- */
 
-/* =========================================================
-   REALTIME
-   ========================================================= */
+export function subscribeToIncidents(callback) {
+  const channel = supabase
+    .channel(`incidents-${crypto.randomUUID()}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "incidents",
+      },
+      callback
+    )
+    .subscribe();
 
-/**
- * Generic incident realtime subscription.
- */
-export const subscribeToIncidents = (
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function subscribeToResponderIncidents(
   callback
-) => {
+) {
   const channel = supabase
     .channel(
-      `incidents-${Date.now()}`
+      `responder-incidents-${crypto.randomUUID()}`
     )
     .on(
       "postgres_changes",
@@ -234,45 +228,11 @@ export const subscribeToIncidents = (
         schema: "public",
         table: "incidents",
       },
-      (payload) => {
-        callback(payload);
-      }
+      callback
     )
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
   };
-};
-
-
-/**
- * Responder-specific realtime subscription.
- *
- * We listen for incident changes and let the
- * responder hook refresh its assigned incidents.
- */
-export const subscribeToResponderIncidents = (
-  callback
-) => {
-  const channel = supabase
-    .channel(
-      `responder-incidents-${Date.now()}`
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "incidents",
-      },
-      (payload) => {
-        callback(payload);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-};
+}

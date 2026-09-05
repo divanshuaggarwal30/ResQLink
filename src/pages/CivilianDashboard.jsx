@@ -142,7 +142,7 @@ export default function CivilianDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Header */}
+      {}
       <header className="border-b border-slate-800 bg-slate-950/95">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-4">
           <div>
@@ -169,7 +169,7 @@ export default function CivilianDashboard() {
         </div>
       </header>
 
-      {/* Main */}
+      {}
       <main className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-8">
           <p className="text-sm font-medium text-red-400">
@@ -186,7 +186,7 @@ export default function CivilianDashboard() {
           </p>
         </div>
 
-        {/* Status */}
+        {}
         {success && (
           <div className="mb-6 flex gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
@@ -213,7 +213,7 @@ export default function CivilianDashboard() {
           onSubmit={handleSubmit}
           className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl sm:p-7"
         >
-          {/* Disaster Type */}
+          {}
           <div>
             <label
               htmlFor="type"
@@ -241,7 +241,7 @@ export default function CivilianDashboard() {
             </select>
           </div>
 
-          {/* Severity */}
+          {}
           <div>
             <label
               htmlFor="severity"
@@ -269,7 +269,7 @@ export default function CivilianDashboard() {
             </select>
           </div>
 
-          {/* Location */}
+          {}
           <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-red-400" />
@@ -324,7 +324,7 @@ export default function CivilianDashboard() {
             </button>
           </div>
 
-          {/* Submit */}
+          {}
           <button
             type="submit"
             disabled={submitLoading}

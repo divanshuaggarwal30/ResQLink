@@ -13,7 +13,6 @@ import {
 
 import MapOverlay from "./MapOverlay";
 
-
 const severityConfig = {
   high: {
     color: "#ef4444",
@@ -30,7 +29,6 @@ const severityConfig = {
     radius: 8,
   },
 };
-
 
 const responderStatusConfig = {
   available: {
@@ -49,7 +47,6 @@ const responderStatusConfig = {
   },
 };
 
-
 function isValidCoordinate(
   latitude,
   longitude
@@ -63,13 +60,6 @@ function isValidCoordinate(
     longitude <= 180
   );
 }
-
-
-/*
-============================================================
-MAP FOCUS
-============================================================
-*/
 
 function MapFocus({
   incident,
@@ -113,13 +103,6 @@ function MapFocus({
 
   return null;
 }
-
-
-/*
-============================================================
-INCIDENT MARKER
-============================================================
-*/
 
 function IncidentMarker({
   incident,
@@ -247,13 +230,6 @@ function IncidentMarker({
   );
 }
 
-
-/*
-============================================================
-RESPONDER MARKER
-============================================================
-*/
-
 function ResponderMarker({
   responder,
 }) {
@@ -355,13 +331,6 @@ function ResponderMarker({
   );
 }
 
-
-/*
-============================================================
-MAIN MAP
-============================================================
-*/
-
 export default function IncidentMap({
   incidents = [],
   responders = [],
@@ -461,7 +430,6 @@ export default function IncidentMap({
     </div>
   );
 }
-
 
 function Legend({
   className,

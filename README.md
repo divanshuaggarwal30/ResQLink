@@ -139,6 +139,6 @@ npm run build
 
 ## Author
 
-**Divanshu Aggarwal** · B.Tech AI/ML
+**Divanshu Aggarwal** · 
 
 **Real-Time Systems · Concurrency · PostgreSQL · Distributed Synchronization · Authorization**

@@ -1,29 +1,3 @@
--- ============================================================
--- ResQLink Production Authentication & Operations
--- ============================================================
---
--- PUBLIC USERS
---   New accounts become civilians automatically.
---
--- PRIVILEGED USERS
---   Admins and responders are provisioned separately.
---
--- OPERATIONS
---   Secure admin dispatch
---   Responder availability
---   Responder GPS tracking
---   Responder mission state machine
---   Automatic responder availability after resolution
---   Resolved incident archival
---   Realtime responder operations
---
--- ============================================================
-
-
--- ============================================================
--- 1. AUTOMATIC CIVILIAN PROFILE CREATION
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.handle_resqlink_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -31,17 +5,16 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-
   INSERT INTO public.profiles (
     id,
     full_name,
     role
   )
   VALUES (
-    NEW.id,
+    new.id,
     COALESCE(
       NULLIF(
-        NEW.raw_user_meta_data ->> 'full_name',
+        new.raw_user_meta_data ->> 'full_name',
         ''
       ),
       'ResQLink User'
@@ -50,121 +23,69 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
-  RETURN NEW;
-
+  RETURN new;
 END;
 $$;
 
-
-DROP TRIGGER IF EXISTS resqlink_on_auth_user_created
+DROP TRIGGER IF EXISTS
+resqlink_on_auth_user_created
 ON auth.users;
 
-
-CREATE TRIGGER resqlink_on_auth_user_created
+CREATE TRIGGER
+resqlink_on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
-EXECUTE FUNCTION public.handle_resqlink_new_user();
+EXECUTE FUNCTION
+public.handle_resqlink_new_user();
 
+DROP FUNCTION IF EXISTS
+public.update_responder_availability(text);
 
--- ============================================================
--- 2. RESPONDER AVAILABILITY
--- ============================================================
-
-DROP FUNCTION IF EXISTS public.update_responder_availability(text);
-
-
-CREATE OR REPLACE FUNCTION public.update_responder_availability(
+CREATE OR REPLACE FUNCTION
+public.update_responder_availability(
   new_availability text
 )
-RETURNS public.profiles
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  updated_profile public.profiles;
 BEGIN
-
-  -- Only responders can change responder availability.
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.profiles
-    WHERE id = auth.uid()
-      AND role::text = 'responder'
-  ) THEN
-
-    RAISE EXCEPTION
-      'Only responders can update availability';
-
-  END IF;
-
-
-  -- Validate availability.
-
   IF new_availability NOT IN (
     'available',
     'busy',
     'offline'
   ) THEN
-
     RAISE EXCEPTION
-      'Invalid availability status';
-
+      'Invalid availability: %',
+      new_availability;
   END IF;
-
-
-  -- A responder cannot manually become available
-  -- while they still have an active mission.
-
-  IF new_availability = 'available'
-     AND EXISTS (
-       SELECT 1
-       FROM public.incidents
-       WHERE responder_id = auth.uid()
-         AND status IN (
-           'pending',
-           'accepted',
-           'arrived'
-         )
-     )
-  THEN
-
-    RAISE EXCEPTION
-      'Cannot become available while an active mission exists';
-
-  END IF;
-
 
   UPDATE public.profiles
   SET availability = new_availability
   WHERE id = auth.uid()
-  RETURNING *
-  INTO updated_profile;
+  AND role::text = 'responder';
 
-
-  RETURN updated_profile;
-
+  IF NOT FOUND THEN
+    RAISE EXCEPTION
+      'Responder profile not found or unauthorized';
+  END IF;
 END;
 $$;
 
-
 GRANT EXECUTE
-ON FUNCTION public.update_responder_availability(text)
+ON FUNCTION
+public.update_responder_availability(text)
 TO authenticated;
 
-
--- ============================================================
--- 3. RESPONDER LOCATION
--- ============================================================
-
-DROP FUNCTION IF EXISTS public.update_responder_location(
+DROP FUNCTION IF EXISTS
+public.update_responder_location(
   double precision,
   double precision
 );
 
-
-CREATE OR REPLACE FUNCTION public.update_responder_location(
+CREATE OR REPLACE FUNCTION
+public.update_responder_location(
   responder_latitude double precision,
   responder_longitude double precision
 )
@@ -176,37 +97,25 @@ AS $$
 DECLARE
   updated_profile public.profiles;
 BEGIN
-
-  -- Only responders can update their location.
-
   IF NOT EXISTS (
     SELECT 1
     FROM public.profiles
     WHERE id = auth.uid()
-      AND role::text = 'responder'
+    AND role::text = 'responder'
   ) THEN
-
     RAISE EXCEPTION
       'Only responders can update responder location';
-
   END IF;
-
-
-  -- Validate coordinates.
 
   IF responder_latitude IS NULL
-     OR responder_longitude IS NULL
-     OR responder_latitude < -90
-     OR responder_latitude > 90
-     OR responder_longitude < -180
-     OR responder_longitude > 180
-  THEN
-
+  OR responder_longitude IS NULL
+  OR responder_latitude < -90
+  OR responder_latitude > 90
+  OR responder_longitude < -180
+  OR responder_longitude > 180 THEN
     RAISE EXCEPTION
       'Invalid responder coordinates';
-
   END IF;
-
 
   UPDATE public.profiles
   SET
@@ -217,12 +126,9 @@ BEGIN
   RETURNING *
   INTO updated_profile;
 
-
   RETURN updated_profile;
-
 END;
 $$;
-
 
 GRANT EXECUTE
 ON FUNCTION public.update_responder_location(
@@ -231,32 +137,14 @@ ON FUNCTION public.update_responder_location(
 )
 TO authenticated;
 
-
--- ============================================================
--- 4. SECURE ADMIN DISPATCH
--- ============================================================
---
--- This is intentionally atomic:
---
---   1. Verify admin
---   2. Lock incident
---   3. Verify incident is still pending
---   4. Lock responder
---   5. Verify responder is available
---   6. Assign responder
---   7. Mark responder busy
---
--- This prevents concurrent dispatch races.
---
--- ============================================================
-
-DROP FUNCTION IF EXISTS public.dispatch_incident(
+DROP FUNCTION IF EXISTS
+public.dispatch_incident(
   uuid,
   uuid
 );
 
-
-CREATE OR REPLACE FUNCTION public.dispatch_incident(
+CREATE OR REPLACE FUNCTION
+public.dispatch_incident(
   target_incident_id uuid,
   target_responder_id uuid
 )
@@ -266,136 +154,46 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  target_incident public.incidents;
-  target_responder public.profiles;
+  updated_incident public.incidents;
 BEGIN
-
-  -- ==========================================================
-  -- ADMIN AUTHORIZATION
-  -- ==========================================================
-
   IF NOT EXISTS (
     SELECT 1
     FROM public.profiles
     WHERE id = auth.uid()
-      AND role::text = 'admin'
+    AND role::text = 'admin'
   ) THEN
-
     RAISE EXCEPTION
-      'Only administrators can dispatch responders';
-
+      'Only admins can dispatch incidents';
   END IF;
 
-
-  -- ==========================================================
-  -- LOCK INCIDENT
-  -- ==========================================================
-
-  SELECT *
-  INTO target_incident
-  FROM public.incidents
-  WHERE id = target_incident_id
-  FOR UPDATE;
-
-
-  IF target_incident.id IS NULL THEN
-
-    RAISE EXCEPTION
-      'Incident not found';
-
-  END IF;
-
-
-  -- ==========================================================
-  -- INCIDENT MUST BE PENDING
-  -- ==========================================================
-
-  IF target_incident.status::text <> 'pending' THEN
-
-    RAISE EXCEPTION
-      'Incident is no longer pending';
-
-  END IF;
-
-
-  IF target_incident.responder_id IS NOT NULL THEN
-
-    RAISE EXCEPTION
-      'Incident already has a responder';
-
-  END IF;
-
-
-  -- ==========================================================
-  -- LOCK RESPONDER
-  -- ==========================================================
-
-  SELECT *
-  INTO target_responder
-  FROM public.profiles
-  WHERE id = target_responder_id
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = target_responder_id
     AND role::text = 'responder'
-  FOR UPDATE;
-
-
-  IF target_responder.id IS NULL THEN
-
+  ) THEN
     RAISE EXCEPTION
-      'Responder not found';
-
+      'Invalid responder';
   END IF;
-
-
-  -- ==========================================================
-  -- RESPONDER MUST BE AVAILABLE
-  -- ==========================================================
-
-  IF target_responder.availability <> 'available' THEN
-
-    RAISE EXCEPTION
-      'Responder is not available';
-
-  END IF;
-
-
-  -- ==========================================================
-  -- ASSIGN INCIDENT
-  -- ==========================================================
 
   UPDATE public.incidents
   SET
     responder_id = target_responder_id,
-    assigned_at = COALESCE(
-      assigned_at,
-      now()
-    )
-  WHERE id = target_incident_id;
+    status = 'pending',
+    assigned_at = now()
+  WHERE id = target_incident_id
+  AND status = 'pending'
+  RETURNING *
+  INTO updated_incident;
 
+  IF NOT FOUND THEN
+    RAISE EXCEPTION
+      'Incident not found or cannot be dispatched';
+  END IF;
 
-  -- ==========================================================
-  -- MARK RESPONDER BUSY
-  -- ==========================================================
-
-  UPDATE public.profiles
-  SET availability = 'busy'
-  WHERE id = target_responder_id;
-
-
-  -- ==========================================================
-  -- RETURN UPDATED INCIDENT
-  -- ==========================================================
-
-  SELECT *
-  INTO target_incident
-  FROM public.incidents
-  WHERE id = target_incident_id;
-
-
-  RETURN target_incident;
-
+  RETURN updated_incident;
 END;
 $$;
-
 
 GRANT EXECUTE
 ON FUNCTION public.dispatch_incident(
@@ -404,26 +202,14 @@ ON FUNCTION public.dispatch_incident(
 )
 TO authenticated;
 
-
--- ============================================================
--- 5. INCIDENT STATUS STATE MACHINE
--- ============================================================
---
--- pending  -> accepted
--- accepted -> arrived
--- arrived  -> resolved
---
--- Only the assigned responder can perform these transitions.
---
--- ============================================================
-
-DROP FUNCTION IF EXISTS public.update_incident_status(
+DROP FUNCTION IF EXISTS
+public.update_incident_status(
   uuid,
   incident_status
 );
 
-
-CREATE OR REPLACE FUNCTION public.update_incident_status(
+CREATE OR REPLACE FUNCTION
+public.update_incident_status(
   incident_id uuid,
   new_status incident_status
 )
@@ -436,144 +222,93 @@ DECLARE
   current_incident public.incidents;
   updated_incident public.incidents;
 BEGIN
-
-  -- ==========================================================
-  -- LOAD INCIDENT
-  -- ==========================================================
-
   SELECT *
   INTO current_incident
   FROM public.incidents
-  WHERE id = incident_id
-  FOR UPDATE;
-
+  WHERE id = incident_id;
 
   IF NOT FOUND THEN
-
     RAISE EXCEPTION
       'Incident not found';
-
   END IF;
 
+  IF new_status = 'accepted' THEN
 
-  -- ==========================================================
-  -- VERIFY ASSIGNED RESPONDER
-  -- ==========================================================
-
-  IF current_incident.responder_id <> auth.uid() THEN
-
-    RAISE EXCEPTION
-      'You are not assigned to this incident';
-
-  END IF;
-
-
-  -- ==========================================================
-  -- PENDING -> ACCEPTED
-  -- ==========================================================
-
-  IF new_status::text = 'accepted' THEN
-
-    IF current_incident.status::text <> 'pending' THEN
-
+    IF current_incident.status <> 'pending' THEN
       RAISE EXCEPTION
-        'Incident must be pending before acceptance';
-
+        'Incident must be pending before acceptance. Current status: %',
+        current_incident.status;
     END IF;
 
+    IF current_incident.responder_id <> auth.uid() THEN
+      RAISE EXCEPTION
+        'You are not assigned to this incident';
+    END IF;
 
     UPDATE public.incidents
     SET
       status = 'accepted',
-      accepted_at = COALESCE(
-        accepted_at,
-        now()
-      )
+      accepted_at = now()
     WHERE id = incident_id
     RETURNING *
     INTO updated_incident;
 
-
     RETURN updated_incident;
-
   END IF;
 
+  IF new_status = 'arrived' THEN
 
-  -- ==========================================================
-  -- ACCEPTED -> ARRIVED
-  -- ==========================================================
-
-  IF new_status::text = 'arrived' THEN
-
-    IF current_incident.status::text <> 'accepted' THEN
-
+    IF current_incident.status <> 'accepted' THEN
       RAISE EXCEPTION
-        'Incident must be accepted before arrival';
-
+        'Incident must be accepted before arrival. Current status: %',
+        current_incident.status;
     END IF;
 
+    IF current_incident.responder_id <> auth.uid() THEN
+      RAISE EXCEPTION
+        'You are not assigned to this incident';
+    END IF;
 
     UPDATE public.incidents
     SET
       status = 'arrived',
-      arrived_at = COALESCE(
-        arrived_at,
-        now()
-      )
+      arrived_at = now()
     WHERE id = incident_id
     RETURNING *
     INTO updated_incident;
 
-
     RETURN updated_incident;
-
   END IF;
 
+  IF new_status = 'resolved' THEN
 
-  -- ==========================================================
-  -- ARRIVED -> RESOLVED
-  -- ==========================================================
-
-  IF new_status::text = 'resolved' THEN
-
-    IF current_incident.status::text <> 'arrived' THEN
-
+    IF current_incident.status <> 'arrived' THEN
       RAISE EXCEPTION
-        'Responder must arrive before resolving';
-
+        'Incident must be arrived before resolution. Current status: %',
+        current_incident.status;
     END IF;
 
+    IF current_incident.responder_id <> auth.uid() THEN
+      RAISE EXCEPTION
+        'You are not assigned to this incident';
+    END IF;
 
     UPDATE public.incidents
     SET
       status = 'resolved',
-      resolved_at = COALESCE(
-        resolved_at,
-        now()
-      )
+      resolved_at = now()
     WHERE id = incident_id
     RETURNING *
     INTO updated_incident;
 
-
-    -- Responder becomes available again.
-
-    UPDATE public.profiles
-    SET availability = 'available'
-    WHERE id = auth.uid();
-
-
     RETURN updated_incident;
-
   END IF;
 
-
   RAISE EXCEPTION
-    'Invalid incident status transition';
-
+    'Invalid incident status transition to: %',
+    new_status;
 END;
 $$;
-
 
 GRANT EXECUTE
 ON FUNCTION public.update_incident_status(
@@ -582,32 +317,28 @@ ON FUNCTION public.update_incident_status(
 )
 TO authenticated;
 
-
--- ============================================================
--- 6. RESOLVED INCIDENT ARCHIVAL
--- ============================================================
-
-DROP TRIGGER IF EXISTS archive_resolved_incident
+DROP TRIGGER IF EXISTS
+archive_resolved_incident
 ON public.incidents;
 
-DROP TRIGGER IF EXISTS incident_resolved_archive
+DROP TRIGGER IF EXISTS
+incident_resolved_archive
 ON public.incidents;
 
-DROP TRIGGER IF EXISTS trigger_archive_resolved_incident
+DROP TRIGGER IF EXISTS
+trigger_archive_resolved_incident
 ON public.incidents;
 
-
-CREATE OR REPLACE FUNCTION public.archive_resolved_incident()
+CREATE OR REPLACE FUNCTION
+public.archive_resolved_incident()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-
-  IF NEW.status::text = 'resolved'
-     AND OLD.status::text <> 'resolved'
-  THEN
+  IF NEW.status = 'resolved'
+  AND OLD.status <> 'resolved' THEN
 
     INSERT INTO public.incident_archive (
       original_incident_id,
@@ -642,83 +373,24 @@ BEGIN
       now()
     )
     ON CONFLICT DO NOTHING;
-
   END IF;
 
-
   RETURN NEW;
-
 END;
 $$;
 
-
-CREATE TRIGGER incident_resolved_archive
+CREATE TRIGGER
+incident_resolved_archive
 AFTER UPDATE ON public.incidents
 FOR EACH ROW
 WHEN (
   NEW.status = 'resolved'::incident_status
   AND OLD.status <> 'resolved'::incident_status
 )
-EXECUTE FUNCTION public.archive_resolved_incident();
-
+EXECUTE FUNCTION
+public.archive_resolved_incident();
 
 GRANT EXECUTE
-ON FUNCTION public.archive_resolved_incident()
+ON FUNCTION
+public.archive_resolved_incident()
 TO authenticated;
-
-
--- ============================================================
--- 7. REALTIME RESPONDER OPERATIONS
--- ============================================================
-
-DO $$
-BEGIN
-
-  BEGIN
-
-    ALTER PUBLICATION supabase_realtime
-    ADD TABLE public.profiles;
-
-  EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
-
-  END;
-
-END;
-$$;
-
-
--- ============================================================
--- 8. COMMENTS
--- ============================================================
-
-COMMENT ON FUNCTION public.dispatch_incident(
-  uuid,
-  uuid
-)
-IS
-'Secure admin-only atomic incident dispatch with responder availability locking';
-
-
-COMMENT ON FUNCTION public.update_incident_status(
-  uuid,
-  incident_status
-)
-IS
-'Secure responder-only incident state machine';
-
-
-COMMENT ON FUNCTION public.update_responder_location(
-  double precision,
-  double precision
-)
-IS
-'Secure responder GPS update';
-
-
-COMMENT ON FUNCTION public.update_responder_availability(
-  text
-)
-IS
-'Secure responder availability update';

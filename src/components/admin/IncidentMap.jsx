@@ -5,12 +5,10 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
-
 import {
   useEffect,
   useMemo,
 } from "react";
-
 import MapOverlay from "./MapOverlay";
 
 const severityConfig = {
@@ -18,12 +16,10 @@ const severityConfig = {
     color: "#ef4444",
     radius: 11,
   },
-
   medium: {
     color: "#f59e0b",
     radius: 9,
   },
-
   low: {
     color: "#10b981",
     radius: 8,
@@ -35,12 +31,10 @@ const responderStatusConfig = {
     color: "#22c55e",
     label: "Available",
   },
-
   busy: {
     color: "#f59e0b",
     label: "Busy",
   },
-
   offline: {
     color: "#64748b",
     label: "Offline",
@@ -73,7 +67,6 @@ function MapFocus({
 
     const latitude =
       Number(incident.latitude);
-
     const longitude =
       Number(incident.longitude);
 
@@ -110,7 +103,6 @@ function IncidentMarker({
 }) {
   const latitude =
     Number(incident.latitude);
-
   const longitude =
     Number(incident.longitude);
 
@@ -147,21 +139,15 @@ function IncidentMarker({
         latitude,
         longitude,
       ]}
-      radius={
-        config.radius
-      }
+      radius={config.radius}
       pathOptions={{
-        color:
-          config.color,
-
+        color: config.color,
         fillColor:
           config.color,
-
         fillOpacity:
           severity === "high"
             ? 0.9
             : 0.75,
-
         weight:
           severity === "high"
             ? 3
@@ -169,9 +155,7 @@ function IncidentMarker({
       }}
       eventHandlers={{
         click: () =>
-          onSelect?.(
-            incident
-          ),
+          onSelect?.(incident),
       }}
     >
       <Popup>
@@ -187,11 +171,8 @@ function IncidentMarker({
             <span
               className="rounded-full px-2 py-1 text-[10px] font-bold uppercase"
               style={{
-                backgroundColor:
-                  `${config.color}22`,
-
-                color:
-                  config.color,
+                backgroundColor: `${config.color}22`,
+                color: config.color,
               }}
             >
               {severity}
@@ -235,7 +216,6 @@ function ResponderMarker({
 }) {
   const latitude =
     Number(responder.latitude);
-
   const longitude =
     Number(responder.longitude);
 
@@ -268,14 +248,10 @@ function ResponderMarker({
       ]}
       radius={8}
       pathOptions={{
-        color:
-          config.color,
-
+        color: config.color,
         fillColor:
           config.color,
-
         fillOpacity: 0.95,
-
         weight: 3,
       }}
     >
@@ -300,8 +276,7 @@ function ResponderMarker({
             Status:{" "}
             <strong
               style={{
-                color:
-                  config.color,
+                color: config.color,
               }}
             >
               {config.label}
@@ -349,9 +324,7 @@ export default function IncidentMap({
   return (
     <div className="relative h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
       <MapContainer
-        center={
-          defaultCenter
-        }
+        center={defaultCenter}
         zoom={11}
         scrollWheelZoom
         className="h-full min-h-[500px] w-full"
@@ -362,21 +335,15 @@ export default function IncidentMap({
         />
 
         <MapFocus
-          incident={
-            selectedIncident
-          }
+          incident={selectedIncident}
         />
 
         {incidents.map(
           (incident) => (
             <IncidentMarker
               key={incident.id}
-              incident={
-                incident
-              }
-              onSelect={
-                onSelect
-              }
+              incident={incident}
+              onSelect={onSelect}
             />
           )
         )}
@@ -384,24 +351,16 @@ export default function IncidentMap({
         {responders.map(
           (responder) => (
             <ResponderMarker
-              key={
-                responder.id
-              }
-              responder={
-                responder
-              }
+              key={responder.id}
+              responder={responder}
             />
           )
         )}
       </MapContainer>
 
       <MapOverlay
-        incidents={
-          incidents
-        }
-        responders={
-          responders
-        }
+        incidents={incidents}
+        responders={responders}
       />
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur">
@@ -410,17 +369,14 @@ export default function IncidentMap({
             className="bg-red-500"
             label="High"
           />
-
           <Legend
             className="bg-amber-500"
             label="Medium"
           />
-
           <Legend
             className="bg-emerald-500"
             label="Low"
           />
-
           <Legend
             className="bg-blue-500"
             label="Responder"
@@ -440,7 +396,6 @@ function Legend({
       <span
         className={`h-2.5 w-2.5 rounded-full ${className}`}
       />
-
       {label}
     </span>
   );

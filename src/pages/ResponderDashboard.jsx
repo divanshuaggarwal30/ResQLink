@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,12 +13,9 @@ import {
   Radio,
   ShieldCheck,
 } from "lucide-react";
-
 import { useAuth } from "../contexts/AuthContext";
 import { useResponderIncidents } from "../hooks/useResponderIncidents";
-
 import { updateIncidentStatus } from "../services/incidentService";
-
 import {
   updateResponderAvailability,
   updateResponderLocation,
@@ -30,21 +30,25 @@ const TYPE_LABELS = {
 
 const SEVERITY_STYLES = {
   high: {
-    badge: "border-red-500/30 bg-red-500/10 text-red-300",
+    badge:
+      "border-red-500/30 bg-red-500/10 text-red-300",
     icon: "text-red-400",
-    button: "bg-red-600 hover:bg-red-500",
+    button:
+      "bg-red-600 hover:bg-red-500",
   },
-
   medium: {
-    badge: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    badge:
+      "border-amber-500/30 bg-amber-500/10 text-amber-300",
     icon: "text-amber-400",
-    button: "bg-amber-600 hover:bg-amber-500",
+    button:
+      "bg-amber-600 hover:bg-amber-500",
   },
-
   low: {
-    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    badge:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
     icon: "text-emerald-400",
-    button: "bg-emerald-600 hover:bg-emerald-500",
+    button:
+      "bg-emerald-600 hover:bg-emerald-500",
   },
 };
 
@@ -53,7 +57,9 @@ function formatTime(value) {
     return "—";
   }
 
-  return new Date(value).toLocaleTimeString([], {
+  return new Date(
+    value
+  ).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -66,11 +72,16 @@ function formatStatus(status) {
 
   return String(status)
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
+    );
 }
 
 export default function ResponderDashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut } =
+    useAuth();
 
   const {
     incidents,
@@ -78,39 +89,39 @@ export default function ResponderDashboard() {
     error,
   } = useResponderIncidents();
 
-  const [missions, setMissions] = useState([]);
+  const [missions, setMissions] =
+    useState([]);
 
-  const [updatingIncidentId, setUpdatingIncidentId] =
-    useState(null);
+  const [
+    updatingIncidentId,
+    setUpdatingIncidentId,
+  ] = useState(null);
 
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] =
+    useState("");
 
-  const [locationState, setLocationState] =
-    useState("starting");
+  const [
+    locationState,
+    setLocationState,
+  ] = useState("starting");
 
-  /*
-   * Keep local missions synchronized with the
-   * incidents returned from the hook.
-   */
   useEffect(() => {
     setMissions(incidents || []);
   }, [incidents]);
 
-  /*
-   * Mark responder as AVAILABLE when the dashboard loads.
-   *
-   * This is important because the Admin dashboard needs
-   * to know that this responder can receive a mission.
-   */
   useEffect(() => {
     let mounted = true;
 
     async function initializeResponder() {
       try {
-        await updateResponderAvailability("available");
+        await updateResponderAvailability(
+          "available"
+        );
 
         if (mounted) {
-          setLocationState("starting");
+          setLocationState(
+            "starting"
+          );
         }
       } catch (err) {
         console.error(
@@ -119,7 +130,9 @@ export default function ResponderDashboard() {
         );
 
         if (mounted) {
-          setLocationState("error");
+          setLocationState(
+            "error"
+          );
 
           setActionError(
             err?.message ||
@@ -136,12 +149,11 @@ export default function ResponderDashboard() {
     };
   }, []);
 
-  /*
-   * Track responder's live GPS location.
-   */
   useEffect(() => {
     if (!navigator.geolocation) {
-      setLocationState("unsupported");
+      setLocationState(
+        "unsupported"
+      );
       return;
     }
 
@@ -154,14 +166,17 @@ export default function ResponderDashboard() {
               position.coords.longitude
             );
 
-            setLocationState("active");
+            setLocationState(
+              "active"
+            );
           } catch (err) {
             console.error(
               "Location update failed:",
               err
             );
-
-            setLocationState("error");
+            setLocationState(
+              "error"
+            );
           }
         },
         (geoError) => {
@@ -169,8 +184,9 @@ export default function ResponderDashboard() {
             "Geolocation error:",
             geoError.message
           );
-
-          setLocationState("denied");
+          setLocationState(
+            "denied"
+          );
         },
         {
           enableHighAccuracy: true,
@@ -180,97 +196,84 @@ export default function ResponderDashboard() {
       );
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      navigator.geolocation.clearWatch(
+        watchId
+      );
     };
   }, []);
 
-  /*
-   * Only unresolved missions are displayed.
-   */
-  const activeMissions = useMemo(
-    () =>
-      missions.filter(
-        (mission) => mission.status !== "resolved"
-      ),
-    [missions]
-  );
+  const activeMissions =
+    useMemo(
+      () =>
+        missions.filter(
+          (mission) =>
+            mission.status !==
+            "resolved"
+        ),
+      [missions]
+    );
 
-  /*
-   * Update mission status.
-   *
-   * Flow:
-   *
-   * pending  → accepted
-   * accepted → arrived
-   * arrived  → resolved
-   */
-  const handleStatusUpdate = async (
-    incidentId,
-    newStatus
-  ) => {
-    /*
-     * Prevent duplicate requests for the same mission.
-     */
-    if (updatingIncidentId === incidentId) {
-      return;
-    }
+  const handleStatusUpdate =
+    async (
+      incidentId,
+      newStatus
+    ) => {
+      if (
+        updatingIncidentId ===
+        incidentId
+      ) {
+        return;
+      }
 
-    setUpdatingIncidentId(incidentId);
-    setActionError("");
+      setUpdatingIncidentId(
+        incidentId
+      );
+      setActionError("");
 
-    try {
-      const updated =
-        await updateIncidentStatus(
-          incidentId,
-          newStatus
+      try {
+        const updated =
+          await updateIncidentStatus(
+            incidentId,
+            newStatus
+          );
+
+        setMissions((current) =>
+          current.map((mission) =>
+            mission.id === incidentId
+              ? {
+                  ...mission,
+                  ...updated,
+                  status: newStatus,
+                }
+              : mission
+          )
+        );
+      } catch (err) {
+        console.error(
+          "Status update failed:",
+          err
         );
 
-      /*
-       * Immediately update the local mission.
-       *
-       * This means:
-       *
-       * arrived → resolved
-       *
-       * immediately removes the mission from the
-       * active missions list.
-       */
-      setMissions((current) =>
-        current.map((mission) =>
-          mission.id === incidentId
-            ? {
-                ...mission,
-                ...updated,
-                status: newStatus,
-              }
-            : mission
-        )
-      );
-    } catch (err) {
-      console.error(
-        "Status update failed:",
-        err
-      );
+        setActionError(
+          err?.message ||
+            "Unable to update mission status."
+        );
+      } finally {
+        setUpdatingIncidentId(
+          null
+        );
+      }
+    };
 
-      setActionError(
-        err?.message ||
-          "Unable to update mission status."
-      );
-    } finally {
-      setUpdatingIncidentId(null);
-    }
-  };
-
-  /*
-   * Set responder offline.
-   */
   async function handleOffline() {
     try {
       await updateResponderAvailability(
         "offline"
       );
 
-      setLocationState("offline");
+      setLocationState(
+        "offline"
+      );
     } catch (err) {
       console.error(
         "Availability update failed:",
@@ -286,7 +289,6 @@ export default function ResponderDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* HEADER */}
       <header className="border-b border-slate-800">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
@@ -298,7 +300,6 @@ export default function ResponderDashboard() {
               <p className="font-bold">
                 ResQLink
               </p>
-
               <p className="text-xs text-slate-500">
                 Field Operations
               </p>
@@ -317,19 +318,22 @@ export default function ResponderDashboard() {
       </header>
 
       <main className="mx-auto max-w-lg px-4 py-6">
-        {/* FIELD UNIT STATUS */}
         <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span
                 className={`h-3 w-3 rounded-full ${
-                  locationState === "active"
+                  locationState ===
+                  "active"
                     ? "animate-pulse bg-emerald-400"
-                    : locationState === "denied"
+                    : locationState ===
+                      "denied"
                     ? "bg-red-400"
-                    : locationState === "error"
+                    : locationState ===
+                      "error"
                     ? "bg-red-400"
-                    : locationState === "offline"
+                    : locationState ===
+                      "offline"
                     ? "bg-slate-500"
                     : "bg-amber-400"
                 }`}
@@ -341,15 +345,20 @@ export default function ResponderDashboard() {
                 </p>
 
                 <p className="text-xs text-slate-500">
-                  {locationState === "active"
+                  {locationState ===
+                  "active"
                     ? "Live location active"
-                    : locationState === "denied"
+                    : locationState ===
+                      "denied"
                     ? "Location permission required"
-                    : locationState === "unsupported"
+                    : locationState ===
+                      "unsupported"
                     ? "GPS unavailable"
-                    : locationState === "error"
+                    : locationState ===
+                      "error"
                     ? "Responder connection error"
-                    : locationState === "offline"
+                    : locationState ===
+                      "offline"
                     ? "Unit offline"
                     : "Responder available • Connecting to GPS..."}
                 </p>
@@ -358,7 +367,8 @@ export default function ResponderDashboard() {
 
             <Radio
               className={`h-4 w-4 ${
-                locationState === "active"
+                locationState ===
+                "active"
                   ? "text-emerald-400"
                   : "text-slate-600"
               }`}
@@ -366,7 +376,6 @@ export default function ResponderDashboard() {
           </div>
         </div>
 
-        {/* PAGE INTRO */}
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-red-400">
             Responder Portal
@@ -381,21 +390,18 @@ export default function ResponderDashboard() {
           </p>
         </div>
 
-        {/* HOOK ERROR */}
         {error && (
           <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
             {error}
           </div>
         )}
 
-        {/* ACTION ERROR */}
         {actionError && (
           <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
             {actionError}
           </div>
         )}
 
-        {/* MISSIONS */}
         {loading ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
             <Radio className="mx-auto h-8 w-8 animate-pulse text-slate-600" />
@@ -404,178 +410,188 @@ export default function ResponderDashboard() {
               Loading missions...
             </p>
           </div>
-        ) : activeMissions.length === 0 ? (
+        ) : activeMissions.length ===
+          0 ? (
           <EmptyState />
         ) : (
           <div className="space-y-5">
-            {activeMissions.map((incident) => {
-              const severity = String(
-                incident.severity || "low"
-              ).toLowerCase();
+            {activeMissions.map(
+              (incident) => {
+                const severity =
+                  String(
+                    incident.severity ||
+                      "low"
+                  ).toLowerCase();
 
-              const style =
-                SEVERITY_STYLES[severity] ||
-                SEVERITY_STYLES.low;
+                const style =
+                  SEVERITY_STYLES[
+                    severity
+                  ] ||
+                  SEVERITY_STYLES.low;
 
-              const isUpdating =
-                updatingIncidentId === incident.id;
+                const isUpdating =
+                  updatingIncidentId ===
+                  incident.id;
 
-              return (
-                <article
-                  key={incident.id}
-                  className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
-                >
-                  {/* PRIORITY HEADER */}
-                  <div
-                    className={`border-b border-slate-800 px-5 py-3 ${style.badge}`}
+                return (
+                  <article
+                    key={incident.id}
+                    className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle
-                          className={`h-4 w-4 ${style.icon}`}
-                        />
+                    <div
+                      className={`border-b border-slate-800 px-5 py-3 ${style.badge}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle
+                            className={`h-4 w-4 ${style.icon}`}
+                          />
 
-                        <span className="text-xs font-bold uppercase">
-                          {severity} priority
+                          <span className="text-xs font-bold uppercase">
+                            {severity} priority
+                          </span>
+                        </div>
+
+                        <span className="text-xs font-semibold uppercase text-slate-400">
+                          {formatStatus(
+                            incident.status
+                          )}
                         </span>
                       </div>
-
-                      <span className="text-xs font-semibold uppercase text-slate-400">
-                        {formatStatus(
-                          incident.status
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-5">
-                    {/* INCIDENT TYPE */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider text-slate-600">
-                          Emergency Type
-                        </p>
-
-                        <h2 className="mt-1 text-2xl font-bold">
-                          {TYPE_LABELS[
-                            incident.type
-                          ] || incident.type}
-                        </h2>
-                      </div>
-
-                      <div
-                        className={`rounded-xl border p-3 ${style.badge}`}
-                      >
-                        <AlertTriangle
-                          className={`h-6 w-6 ${style.icon}`}
-                        />
-                      </div>
                     </div>
 
-                    {/* LOCATION */}
-                    <div className="mt-5">
-                      <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
-                        <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-
-                        <div className="min-w-0">
-                          <p className="text-xs text-slate-500">
-                            Emergency Location
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-slate-600">
+                            Emergency Type
                           </p>
 
-                          <p className="mt-1 break-all font-mono text-sm text-slate-200">
-                            {Number(
-                              incident.latitude
-                            ).toFixed(6)}
-                            ,{" "}
-                            {Number(
-                              incident.longitude
-                            ).toFixed(6)}
-                          </p>
+                          <h2 className="mt-1 text-2xl font-bold">
+                            {TYPE_LABELS[
+                              incident.type
+                            ] ||
+                              incident.type}
+                          </h2>
+                        </div>
 
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${incident.latitude},${incident.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
-                          >
-                            <Navigation className="h-3.5 w-3.5" />
-                            OPEN MAP
-                          </a>
+                        <div
+                          className={`rounded-xl border p-3 ${style.badge}`}
+                        >
+                          <AlertTriangle
+                            className={`h-6 w-6 ${style.icon}`}
+                          />
                         </div>
                       </div>
+
+                      <div className="mt-5">
+                        <div className="flex items-start gap-3 rounded-xl bg-slate-950 p-4">
+                          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+
+                          <div className="min-w-0">
+                            <p className="text-xs text-slate-500">
+                              Emergency Location
+                            </p>
+
+                            <p className="mt-1 break-all font-mono text-sm text-slate-200">
+                              {Number(
+                                incident.latitude
+                              ).toFixed(6)}
+                              ,{" "}
+                              {Number(
+                                incident.longitude
+                              ).toFixed(6)}
+                            </p>
+
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${incident.latitude},${incident.longitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                            >
+                              <Navigation className="h-3.5 w-3.5" />
+                              OPEN MAP
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      <MissionTimeline
+                        incident={incident}
+                      />
+
+                      <div className="mt-6">
+                        {incident.status ===
+                          "pending" && (
+                          <MissionButton
+                            loading={
+                              isUpdating
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(
+                                incident.id,
+                                "accepted"
+                              )
+                            }
+                            className="bg-red-600 hover:bg-red-500"
+                            icon={Navigation}
+                            text="ACCEPT MISSION"
+                            loadingText="ACCEPTING..."
+                          />
+                        )}
+
+                        {incident.status ===
+                          "accepted" && (
+                          <MissionButton
+                            loading={
+                              isUpdating
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(
+                                incident.id,
+                                "arrived"
+                              )
+                            }
+                            className="bg-blue-600 hover:bg-blue-500"
+                            icon={MapPin}
+                            text="ARRIVED AT LOCATION"
+                            loadingText="UPDATING..."
+                          />
+                        )}
+
+                        {incident.status ===
+                          "arrived" && (
+                          <MissionButton
+                            loading={
+                              isUpdating
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(
+                                incident.id,
+                                "resolved"
+                              )
+                            }
+                            className="bg-emerald-600 hover:bg-emerald-500"
+                            icon={
+                              CheckCircle2
+                            }
+                            text="ISSUE RESOLVED"
+                            loadingText="RESOLVING..."
+                          />
+                        )}
+                      </div>
                     </div>
-
-                    {/* MISSION TIMELINE */}
-                    <MissionTimeline
-                      incident={incident}
-                    />
-
-                    {/* ACTION BUTTONS */}
-                    <div className="mt-6">
-                      {/* PENDING → ACCEPTED */}
-                      {incident.status === "pending" && (
-                        <MissionButton
-                          loading={isUpdating}
-                          onClick={() =>
-                            handleStatusUpdate(
-                              incident.id,
-                              "accepted"
-                            )
-                          }
-                          className="bg-red-600 hover:bg-red-500"
-                          icon={Navigation}
-                          text="ACCEPT MISSION"
-                          loadingText="ACCEPTING..."
-                        />
-                      )}
-
-                      {/* ACCEPTED → ARRIVED */}
-                      {incident.status === "accepted" && (
-                        <MissionButton
-                          loading={isUpdating}
-                          onClick={() =>
-                            handleStatusUpdate(
-                              incident.id,
-                              "arrived"
-                            )
-                          }
-                          className="bg-blue-600 hover:bg-blue-500"
-                          icon={MapPin}
-                          text="ARRIVED AT LOCATION"
-                          loadingText="UPDATING..."
-                        />
-                      )}
-
-                      {/* ARRIVED → RESOLVED */}
-                      {incident.status === "arrived" && (
-                        <MissionButton
-                          loading={isUpdating}
-                          onClick={() =>
-                            handleStatusUpdate(
-                              incident.id,
-                              "resolved"
-                            )
-                          }
-                          className="bg-emerald-600 hover:bg-emerald-500"
-                          icon={CheckCircle2}
-                          text="ISSUE RESOLVED"
-                          loadingText="RESOLVING..."
-                        />
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                  </article>
+                );
+              }
+            )}
           </div>
         )}
 
-        {/* USER EMAIL */}
         <p className="mt-8 break-all text-center text-xs text-slate-600">
           {user?.email}
         </p>
 
-        {/* OFFLINE */}
         <button
           type="button"
           onClick={handleOffline}
@@ -588,9 +604,6 @@ export default function ResponderDashboard() {
   );
 }
 
-/*
- * Reusable mission button.
- */
 function MissionButton({
   loading,
   onClick,
@@ -608,39 +621,44 @@ function MissionButton({
     >
       <Icon
         className={`h-5 w-5 ${
-          loading ? "animate-pulse" : ""
+          loading
+            ? "animate-pulse"
+            : ""
         }`}
       />
-
       {loading ? loadingText : text}
     </button>
   );
 }
 
-/*
- * Mission timeline.
- */
-function MissionTimeline({ incident }) {
+function MissionTimeline({
+  incident,
+}) {
   const steps = [
     {
       label: "Reported",
-      timestamp: incident.created_at,
+      timestamp:
+        incident.created_at,
     },
     {
       label: "Dispatched",
-      timestamp: incident.assigned_at,
+      timestamp:
+        incident.assigned_at,
     },
     {
       label: "Accepted",
-      timestamp: incident.accepted_at,
+      timestamp:
+        incident.accepted_at,
     },
     {
       label: "Arrived",
-      timestamp: incident.arrived_at,
+      timestamp:
+        incident.arrived_at,
     },
     {
       label: "Resolved",
-      timestamp: incident.resolved_at,
+      timestamp:
+        incident.resolved_at,
     },
   ];
 
@@ -655,58 +673,60 @@ function MissionTimeline({ incident }) {
       </div>
 
       <div className="space-y-4">
-        {steps.map((step, index) => {
-          const complete =
-            Boolean(step.timestamp);
+        {steps.map(
+          (step, index) => {
+            const complete =
+              Boolean(
+                step.timestamp
+              );
 
-          return (
-            <div
-              key={step.label}
-              className="flex items-start gap-3"
-            >
-              <div className="flex flex-col items-center">
-                <span
-                  className={`mt-0.5 h-2.5 w-2.5 rounded-full ${
-                    complete
-                      ? "bg-emerald-400"
-                      : "bg-slate-700"
-                  }`}
-                />
+            return (
+              <div
+                key={step.label}
+                className="flex items-start gap-3"
+              >
+                <div className="flex flex-col items-center">
+                  <span
+                    className={`mt-0.5 h-2.5 w-2.5 rounded-full ${
+                      complete
+                        ? "bg-emerald-400"
+                        : "bg-slate-700"
+                    }`}
+                  />
 
-                {index <
-                  steps.length - 1 && (
-                  <span className="mt-1 h-5 w-px bg-slate-800" />
-                )}
-              </div>
-
-              <div className="flex min-w-0 flex-1 justify-between gap-3">
-                <span
-                  className={`text-xs ${
-                    complete
-                      ? "text-slate-300"
-                      : "text-slate-600"
-                  }`}
-                >
-                  {step.label}
-                </span>
-
-                <span className="font-mono text-[10px] text-slate-600">
-                  {formatTime(
-                    step.timestamp
+                  {index <
+                    steps.length -
+                      1 && (
+                    <span className="mt-1 h-5 w-px bg-slate-800" />
                   )}
-                </span>
+                </div>
+
+                <div className="flex min-w-0 flex-1 justify-between gap-3">
+                  <span
+                    className={`text-xs ${
+                      complete
+                        ? "text-slate-300"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+
+                  <span className="font-mono text-[10px] text-slate-600">
+                    {formatTime(
+                      step.timestamp
+                    )}
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          }
+        )}
       </div>
     </div>
   );
 }
 
-/*
- * Empty mission state.
- */
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
@@ -717,8 +737,7 @@ function EmptyState() {
       </h2>
 
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        New assignments from the Command Center will appear
-        here automatically.
+        New assignments from the Command Center will appear here automatically.
       </p>
     </div>
   );

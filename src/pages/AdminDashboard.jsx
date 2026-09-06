@@ -2,7 +2,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
 import {
   AlertTriangle,
   Clock3,
@@ -16,19 +15,14 @@ import {
   Users,
   Wifi,
 } from "lucide-react";
-
 import IncidentMap from "../components/admin/IncidentMap";
-
 import { useAuth } from "../contexts/AuthContext";
-
 import {
   dispatchIncident,
 } from "../services/incidentService";
-
 import {
   useIncidents,
 } from "../hooks/useIncidents";
-
 import {
   useResponders,
 } from "../hooks/useResponders";
@@ -37,32 +31,24 @@ const severityStyles = {
   high: {
     badge:
       "border-red-500/30 bg-red-500/10 text-red-300",
-
     icon:
       "text-red-400",
-
     border:
       "border-red-500/40",
   },
-
   medium: {
     badge:
       "border-amber-500/30 bg-amber-500/10 text-amber-300",
-
     icon:
       "text-amber-400",
-
     border:
       "border-amber-500/30",
   },
-
   low: {
     badge:
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-
     icon:
       "text-emerald-400",
-
     border:
       "border-emerald-500/20",
   },
@@ -79,7 +65,6 @@ function formatTime(date) {
   if (!date) {
     return "Unknown";
   }
-
   return new Date(
     date
   ).toLocaleTimeString([], {
@@ -93,7 +78,6 @@ function formatStatus(status) {
   if (!status) {
     return "Unknown";
   }
-
   return String(status)
     .replaceAll("_", " ")
     .replace(
@@ -113,7 +97,6 @@ function IncidentCard({
       incident.severity
     ] ||
     severityStyles.low;
-
   const isHigh =
     incident.severity ===
     "high";
@@ -132,7 +115,9 @@ function IncidentCard({
     >
       <div className="flex items-start gap-3">
         <div
-          className={`mt-1 rounded-lg border p-2 ${style.badge} ${
+          className={`mt-1 rounded-lg border p-2 ${
+            style.badge
+          } ${
             isHigh
               ? "animate-pulse"
               : ""
@@ -148,22 +133,18 @@ function IncidentCard({
             <p className="truncate font-semibold text-white">
               {typeLabels[
                 incident.type
-              ] ||
-                incident.type}
+              ] || incident.type}
             </p>
 
             <span
               className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${style.badge}`}
             >
-              {
-                incident.severity
-              }
+              {incident.severity}
             </span>
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
             <Clock3 className="h-3.5 w-3.5" />
-
             {formatTime(
               incident.created_at
             )}
@@ -171,7 +152,6 @@ function IncidentCard({
 
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
             <MapPin className="h-3.5 w-3.5" />
-
             {Number(
               incident.latitude
             ).toFixed(4)}
@@ -201,7 +181,8 @@ function IncidentCard({
 }
 
 export default function AdminDashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut } =
+    useAuth();
 
   const {
     incidents,
@@ -276,7 +257,7 @@ export default function AdminDashboard() {
         active.filter(
           (incident) =>
             incident.status ===
-            "pending" &&
+              "pending" &&
             !incident.responder_id
         );
 
@@ -305,19 +286,14 @@ export default function AdminDashboard() {
       return {
         active:
           active.length,
-
         high:
           high.length,
-
         pending:
           pending.length,
-
         missions:
           missions.length,
-
         available:
           available.length,
-
         busy:
           busy.length,
       };
@@ -356,7 +332,6 @@ export default function AdminDashboard() {
         setActionError(
           "Select an incident first."
         );
-
         return;
       }
 
@@ -368,7 +343,6 @@ export default function AdminDashboard() {
         setActionError(
           "This incident is no longer available for dispatch."
         );
-
         return;
       }
 
@@ -376,7 +350,6 @@ export default function AdminDashboard() {
         setActionError(
           "Select an available responder first."
         );
-
         return;
       }
 
@@ -395,7 +368,6 @@ export default function AdminDashboard() {
         setActionError(
           "That responder is no longer available."
         );
-
         return;
       }
 
@@ -411,7 +383,6 @@ export default function AdminDashboard() {
         setSelectedIncident(
           null
         );
-
         setSelectedResponder("");
       } catch (err) {
         console.error(
@@ -430,12 +401,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-
-      {}
-
       <header className="border-b border-slate-800 bg-slate-950">
         <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-red-500/10 p-2">
               <ShieldCheck className="h-5 w-5 text-red-400" />
@@ -445,7 +412,6 @@ export default function AdminDashboard() {
               <h1 className="font-bold">
                 ResQLink
               </h1>
-
               <p className="text-xs text-slate-500">
                 Command Center
               </p>
@@ -453,16 +419,13 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-
             <div className="hidden items-center gap-2 text-xs text-emerald-400 sm:flex">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-
               SYSTEM ONLINE
             </div>
 
             <div className="hidden items-center gap-2 text-xs text-slate-500 lg:flex">
               <Wifi className="h-3.5 w-3.5 text-emerald-400" />
-
               REALTIME
             </div>
 
@@ -478,72 +441,53 @@ export default function AdminDashboard() {
             >
               <LogOut className="h-5 w-5" />
             </button>
-
           </div>
         </div>
       </header>
 
-      {}
-
       <section className="border-b border-slate-800 bg-slate-900/50 px-4 py-4 lg:px-6">
-
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-
           <Stat
             label="Active Incidents"
             value={stats.active}
             icon={Radio}
           />
-
           <Stat
             label="High Severity"
             value={stats.high}
             icon={AlertTriangle}
             danger
           />
-
           <Stat
             label="Awaiting Dispatch"
             value={stats.pending}
             icon={Clock3}
           />
-
           <Stat
             label="Active Missions"
             value={stats.missions}
             icon={ShieldCheck}
           />
-
           <Stat
             label="Available Units"
             value={stats.available}
             icon={Users}
           />
-
           <Stat
             label="Busy Units"
             value={stats.busy}
             icon={UserRound}
           />
-
         </div>
       </section>
 
-      {}
-
       <main className="grid min-h-[calc(100vh-137px)] lg:grid-cols-[380px_1fr]">
-
-        {}
-
         <aside className="border-r border-slate-800 bg-slate-900/30">
-
           <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
-
             <div>
               <h2 className="font-semibold">
                 Live Incidents
               </h2>
-
               <p className="mt-1 text-xs text-slate-500">
                 Realtime emergency feed
               </p>
@@ -564,7 +508,6 @@ export default function AdminDashboard() {
                 }`}
               />
             </button>
-
           </div>
 
           {error && (
@@ -574,38 +517,28 @@ export default function AdminDashboard() {
           )}
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
-
             {loading &&
-            incidents.length ===
-              0 ? (
+            incidents.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
                 Loading incidents...
               </div>
             ) : incidents.length ===
               0 ? (
               <div className="p-8 text-center">
-
                 <Radio className="mx-auto h-8 w-8 text-slate-700" />
-
                 <p className="mt-3 font-medium text-slate-400">
                   No active incidents
                 </p>
-
                 <p className="mt-1 text-xs text-slate-600">
                   New emergency reports will appear here automatically.
                 </p>
-
               </div>
             ) : (
               incidents.map(
                 (incident) => (
                   <IncidentCard
-                    key={
-                      incident.id
-                    }
-                    incident={
-                      incident
-                    }
+                    key={incident.id}
+                    incident={incident}
                     selected={
                       currentSelectedIncident?.id ===
                       incident.id
@@ -617,22 +550,14 @@ export default function AdminDashboard() {
                 )
               )
             )}
-
           </div>
         </aside>
 
-        {}
-
         <section className="min-w-0 p-5 lg:p-8">
-
           <div className="mx-auto max-w-7xl">
-
             <div className="mb-6">
-
               <div className="flex flex-wrap items-end justify-between gap-4">
-
                 <div>
-
                   <p className="text-xs font-semibold uppercase tracking-widest text-red-400">
                     Operations
                   </p>
@@ -644,34 +569,21 @@ export default function AdminDashboard() {
                   <p className="mt-2 max-w-2xl text-sm text-slate-500">
                     Monitor incidents, track field units, and coordinate response in real time.
                   </p>
-
                 </div>
 
                 <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
-
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                     Live Operations
                   </span>
-
                 </div>
-
               </div>
-
             </div>
 
-            {}
-
             <div className="mb-6">
-
               <IncidentMap
-                incidents={
-                  incidents
-                }
-                responders={
-                  responders
-                }
+                incidents={incidents}
+                responders={responders}
                 selectedIncident={
                   currentSelectedIncident
                 }
@@ -679,15 +591,10 @@ export default function AdminDashboard() {
                   setSelectedIncident
                 }
               />
-
             </div>
 
-            {}
-
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:p-6">
-
               <div className="mb-6">
-
                 <p className="text-xs font-semibold uppercase tracking-widest text-red-400">
                   Incident Control
                 </p>
@@ -699,50 +606,32 @@ export default function AdminDashboard() {
                 <p className="mt-1 text-sm text-slate-500">
                   Dispatch is validated and executed by the database.
                 </p>
-
               </div>
 
               {!currentSelectedIncident ? (
-
                 <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50">
-
                   <div className="px-6 text-center">
-
                     <AlertTriangle className="mx-auto h-10 w-10 text-slate-700" />
-
                     <p className="mt-4 font-medium text-slate-400">
                       No incident selected
                     </p>
-
                     <p className="mt-2 max-w-sm text-sm text-slate-600">
                       Select an incident from the feed or click a map marker.
                     </p>
-
                   </div>
-
                 </div>
-
               ) : (
-
                 <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-
-                  {}
-
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
-
                     <div className="flex items-start justify-between gap-4">
-
                       <div>
-
                         <div className="flex items-center gap-3">
-
                           <div
                             className={`rounded-xl border p-3 ${
                               severityStyles[
                                 currentSelectedIncident.severity
                               ]?.badge ||
-                              severityStyles
-                                .low
+                              severityStyles.low
                                 .badge
                             }`}
                           >
@@ -751,24 +640,20 @@ export default function AdminDashboard() {
                                 severityStyles[
                                   currentSelectedIncident.severity
                                 ]?.icon ||
-                                severityStyles
-                                  .low
+                                severityStyles.low
                                   .icon
                               }`}
                             />
                           </div>
 
                           <div>
-
                             <h3 className="text-xl font-bold">
-                              {
-                                typeLabels[
-                                  currentSelectedIncident
-                                    .type
-                                ] ||
+                              {typeLabels[
                                 currentSelectedIncident
                                   .type
-                              }
+                              ] ||
+                                currentSelectedIncident
+                                  .type}
                             </h3>
 
                             <span
@@ -777,22 +662,17 @@ export default function AdminDashboard() {
                                   currentSelectedIncident
                                     .severity
                                 ]?.badge ||
-                                severityStyles
-                                  .low
+                                severityStyles.low
                                   .badge
                               }`}
                             >
                               {
-                                currentSelectedIncident
-                                  .severity
+                                currentSelectedIncident.severity
                               }{" "}
                               severity
                             </span>
-
                           </div>
-
                         </div>
-
                       </div>
 
                       <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold uppercase text-slate-300">
@@ -800,11 +680,9 @@ export default function AdminDashboard() {
                           currentSelectedIncident.status
                         )}
                       </span>
-
                     </div>
 
                     <div className="mt-8 grid gap-4 sm:grid-cols-2">
-
                       <InfoRow
                         icon={MapPin}
                         label="Latitude"
@@ -812,7 +690,6 @@ export default function AdminDashboard() {
                           currentSelectedIncident.latitude
                         ).toFixed(6)}
                       />
-
                       <InfoRow
                         icon={MapPin}
                         label="Longitude"
@@ -820,7 +697,6 @@ export default function AdminDashboard() {
                           currentSelectedIncident.longitude
                         ).toFixed(6)}
                       />
-
                       <InfoRow
                         icon={Clock3}
                         label="Reported"
@@ -828,7 +704,6 @@ export default function AdminDashboard() {
                           currentSelectedIncident.created_at
                         )}
                       />
-
                       <InfoRow
                         icon={UserRound}
                         label="Incident ID"
@@ -836,37 +711,26 @@ export default function AdminDashboard() {
                           currentSelectedIncident.id
                         ).slice(0, 8)}
                       />
-
                     </div>
-
                   </div>
 
-                  {}
-
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
-
                     <div className="flex items-center gap-3">
-
                       <div className="rounded-lg bg-blue-500/10 p-2">
                         <Users className="h-5 w-5 text-blue-400" />
                       </div>
 
                       <div>
-
                         <h3 className="font-semibold">
                           Dispatch Field Responder
                         </h3>
-
                         <p className="text-xs text-slate-500">
                           Only currently available units can be dispatched.
                         </p>
-
                       </div>
-
                     </div>
 
                     <div className="mt-6">
-
                       <label
                         htmlFor="responder"
                         className="mb-2 block text-sm font-medium text-slate-300"
@@ -879,9 +743,7 @@ export default function AdminDashboard() {
                         value={
                           selectedResponder
                         }
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           setSelectedResponder(
                             event.target.value
                           )
@@ -896,7 +758,6 @@ export default function AdminDashboard() {
                         }
                         className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-
                         <option value="">
                           {respondersLoading
                             ? "Loading responders..."
@@ -904,9 +765,7 @@ export default function AdminDashboard() {
                         </option>
 
                         {availableResponders.map(
-                          (
-                            responder
-                          ) => (
+                          (responder) => (
                             <option
                               key={
                                 responder.id
@@ -921,9 +780,7 @@ export default function AdminDashboard() {
                             </option>
                           )
                         )}
-
                       </select>
-
                     </div>
 
                     {respondersError && (
@@ -962,39 +819,27 @@ export default function AdminDashboard() {
                       }
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-4 font-bold transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-
                       {dispatching ? (
                         <>
                           <RefreshCw className="h-5 w-5 animate-spin" />
-
                           DISPATCHING...
                         </>
                       ) : (
                         <>
                           <Radio className="h-5 w-5" />
-
                           {currentSelectedIncident.responder_id
                             ? "ALREADY DISPATCHED"
                             : "DISPATCH TEAM"}
                         </>
                       )}
-
                     </button>
-
                   </div>
-
                 </div>
-
               )}
-
             </div>
-
           </div>
-
         </section>
-
       </main>
-
     </div>
   );
 }
@@ -1007,9 +852,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-
       <div className="flex items-center justify-between">
-
         <span className="text-xs text-slate-500">
           {label}
         </span>
@@ -1021,13 +864,11 @@ function Stat({
               : "text-slate-500"
           }`}
         />
-
       </div>
 
       <p className="mt-2 text-2xl font-bold">
         {value}
       </p>
-
     </div>
   );
 }
@@ -1039,19 +880,14 @@ function InfoRow({
 }) {
   return (
     <div className="rounded-xl bg-slate-900 p-4">
-
       <div className="flex items-center gap-2 text-xs text-slate-500">
-
         <Icon className="h-3.5 w-3.5" />
-
         {label}
-
       </div>
 
       <p className="mt-2 truncate font-mono text-sm text-slate-200">
         {value}
       </p>
-
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import CivilianDashboard from "./pages/CivilianDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ResponderDashboard from "./pages/ResponderDashboard";
@@ -36,6 +37,8 @@ export default function App() {
       <Route path="/" element={<HomeRedirect />} />
 
       <Route path="/login" element={<Login />} />
+
+      <Route path="/signup" element={<Signup />} />
 
       <Route
         path="/civilian"

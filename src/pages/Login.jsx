@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -23,7 +23,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
 
       // AuthContext updates the user/profile.
       // The route will automatically redirect.
@@ -68,30 +68,42 @@ export default function Login() {
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm text-slate-300">
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm text-slate-300"
+              >
                 Email
               </label>
 
               <input
+                id="email"
+                name="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-red-500"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm text-slate-300"
+              >
                 Password
               </label>
 
               <input
+                id="password"
+                name="password"
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-red-500"
                 placeholder="••••••••"
               />
@@ -108,6 +120,16 @@ export default function Login() {
 
               {loading ? "Signing in..." : "Sign In"}
             </button>
+          </div>
+
+          <div className="mt-6 border-t border-slate-800 pt-5 text-center text-sm text-slate-400">
+            New to ResQLink?{" "}
+            <Link
+              to="/signup"
+              className="font-semibold text-red-400 transition hover:text-red-300"
+            >
+              Create an account
+            </Link>
           </div>
         </form>
       </div>

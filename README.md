@@ -99,8 +99,6 @@ Build:
 npm run build
 ```
 
-> Never expose the Supabase `service_role` key or other server-side secrets in client-side code.
-
 ## 👨‍💻 Author
 
 **Divanshu Aggarwal**

@@ -4,95 +4,70 @@
 
 **Report → Dispatch → Respond → Resolve**
 
-ResQLink is a full-stack real-time emergency response platform designed around a critical coordination problem: multiple users must safely report incidents, dispatch responders, and synchronize mission state in real time.
+ResQLink is a full-stack real-time emergency response platform designed around a distributed-systems problem: **safely coordinating shared responders while multiple users update operational state concurrently.**
 
-**[Live Demo](YOUR_DEPLOYED_APP_URL) · [GitHub](https://github.com/divanshuaggarwal30/ResQLink.git)**
+[Live Demo](YOUR_DEPLOYED_APP_URL) · [GitHub](https://github.com/divanshuaggarwal30/ResQLink)
 
----
+## ⚡ Engineering Highlights
 
-## Why ResQLink?
+* **Concurrency-safe dispatch** — PostgreSQL transactions + row-level locking prevent conflicting responder assignments.
+* **Database-level authorization** — PostgreSQL RLS protects data instead of relying on frontend checks.
+* **Secure privileged workflows** — Controlled PostgreSQL RPCs enforce sensitive operations server-side.
+* **State integrity** — Database-enforced mission lifecycle: `PENDING → ACCEPTED → ARRIVED → RESOLVED`.
+* **Real-time synchronization** — Supabase Realtime keeps command-center and responder clients synchronized.
+* **Live geolocation** — Browser Geolocation API enables responder location tracking.
 
-The core challenge isn't building another CRUD application. It's maintaining **correctness, authorization, and synchronization when multiple actors interact with the same operational data concurrently.**
-
-ResQLink addresses these problems at the **database and system-design level**.
-
-### Engineering Decisions
-
-| Challenge                           | Solution                                        |
-| ----------------------------------- | ----------------------------------------------- |
-| Conflicting responder assignments   | **PostgreSQL transactions + row-level locking** |
-| Unauthorized data access            | **PostgreSQL Row-Level Security (RLS)**         |
-| Unsafe privileged operations        | **Protected PostgreSQL RPCs**                   |
-| Invalid mission transitions         | **Database-enforced state machine**             |
-| Stale client state                  | **Supabase Realtime**                           |
-| Live responder tracking             | **Geolocation API + RPCs + Realtime**           |
-| Resolved incidents remaining active | **PostgreSQL triggers + archival workflow**     |
-
----
-
-## Hard Parts
-
-### 1. Concurrency-Safe Dispatch
-
-A responder may be selected by multiple administrators at nearly the same time.
-
-Instead of relying on frontend checks, ResQLink performs dispatch inside a **PostgreSQL transaction with row-level locking**:
+### Dispatch Flow
 
 ```text
 Request
    ↓
-Begin Transaction
+Lock Incident + Responder
    ↓
-Lock Responder Row
+Validate State
    ↓
-Verify Availability
+Assign Responder
    ↓
-Assign Mission
+Update Availability
    ↓
 Commit
 ```
 
-When implemented within the same transaction, the lock, availability check, and assignment form an **atomic database operation**, preventing conflicting responder dispatches.
+The critical assignment workflow executes inside a PostgreSQL transaction, making resource allocation safe under concurrent requests.
 
-### 2. Database-Enforced Authorization
-
-Frontend role checks are not treated as a security boundary.
-
-ResQLink uses:
-
-* **Supabase Auth** for identity
-* **PostgreSQL RLS** for row-level authorization
-* **Protected RPCs** for controlled database operations
-
-Authorization therefore remains enforced at the **data layer**, rather than depending on the client UI.
-
-### 3. Mission State Integrity
-
-A mission follows a controlled lifecycle:
+## 🏗️ Architecture
 
 ```text
-PENDING → ACCEPTED → ARRIVED → RESOLVED
-```
-
-Transitions are validated so clients cannot arbitrarily move missions into invalid states.
-
-### 4. Real-Time Synchronization
-
-Operational state changes are propagated through **Supabase Realtime**, keeping connected command-center and responder clients synchronized without manual refreshes or constant polling.
-
-```text
-PostgreSQL
-    ↓
+Civilian
+   │
+   ▼
+React Frontend
+   │
+   ▼
+Supabase Auth + PostgreSQL
+   │
+   ├── RLS
+   ├── Transactions
+   ├── Row-Level Locking
+   ├── RPCs
+   └── Triggers
+   │
+   ▼
 Supabase Realtime
-    ↓
-Connected Clients
-    ↓
-Live UI / Map
+   │
+   ├── Command Center
+   └── Field Responders
 ```
 
----
+## 🎯 Core Capabilities
 
-## Tech Stack
+**Civilian:** report emergencies, provide GPS coordinates, track personal incidents.
+
+**Command Center:** monitor incidents, view maps, track responder availability, dispatch units.
+
+**Responder:** receive assignments, accept/arrive/resolve missions, share live location.
+
+## 🛠️ Tech Stack
 
 **Frontend:** React 19 · Vite · Tailwind CSS · React Router · React Leaflet
 
@@ -102,43 +77,30 @@ Live UI / Map
 
 **Deployment:** Vercel · Supabase Cloud
 
----
-
-## Run Locally
-
-### Prerequisites
-
-* Node.js
-* Supabase project
-
-### Installation
+## 🚀 Run Locally
 
 ```bash
-git clone <repository-url>
-cd resqlink
+git clone https://github.com/divanshuaggarwal30/ResQLink.git
+cd ResQLink/resqlink
 npm install
 npm run dev
 ```
 
-Create a `.env` file:
+Create `.env`:
 
 ```env
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
 ```
 
-Build for production:
+Build:
 
 ```bash
 npm run build
 ```
 
-> **Security:** Never expose the Supabase `service_role` key or other server-side secrets in client-side code.
+> Never expose the Supabase `service_role` key or other server-side secrets in client-side code.
 
----
+## 👨‍💻 Author
 
-## Author
-
-**Divanshu Aggarwal** · 
-
-**Real-Time Systems · Concurrency · PostgreSQL · Distributed Synchronization · Authorization**
+**Divanshu Aggarwal**
